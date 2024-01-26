@@ -20,52 +20,54 @@ public class Chart implements Serializable {
     private Long id;
 
     /**
+     * 图标名称
+     */
+    private String name;
+
+    /**
      * 分析目标
      */
-    @TableField(value = "goal")
     private String goal;
 
     /**
      * 图表数据
      */
-    @TableField(value = "chartData")
     private String chartData;
 
     /**
      * 图表类型
      */
-    @TableField(value = "chartType")
     private String chartType;
 
     /**
      * AI生成的图表信息
      */
-    @TableField(value = "genChart")
     private String genChart;
 
     /**
      * AI生成的分析结果
      */
-    @TableField(value = "genResult")
     private String genResult;
+
+    /**
+     * 创建的用户Id
+     */
+    private Long userId;
 
     /**
      * 创建时间
      */
-    @TableField(value = "createTime")
     private Date createTime;
 
     /**
      * 更新时间
      */
-    @TableField(value = "updateTime")
     private Date updateTime;
 
     /**
      * 是否删除（0-不删除 1-删除）
      */
     @TableLogic
-    @TableField(value = "isDelete")
     private Integer isDelete;
 
     @TableField(exist = false)

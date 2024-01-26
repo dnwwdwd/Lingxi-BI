@@ -1,6 +1,8 @@
 package com.hjj.lingxibi.service;
 
 import javax.annotation.Resource;
+
+import com.hjj.lingxibi.model.entity.User;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

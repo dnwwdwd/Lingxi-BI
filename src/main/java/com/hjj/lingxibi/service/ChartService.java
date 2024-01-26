@@ -1,5 +1,7 @@
 package com.hjj.lingxibi.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -9,5 +11,10 @@ import com.baomidou.mybatisplus.extension.service.IService;
 * @createDate 2024-01-25 19:35:15
 */
 public interface ChartService extends IService<Chart> {
-
+    /**
+     * 根据查询
+     * @param chartQueryRequest
+     * @return
+     */
+    QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest);
 }
