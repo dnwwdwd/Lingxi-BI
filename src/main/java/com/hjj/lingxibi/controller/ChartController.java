@@ -1,5 +1,6 @@
 package com.hjj.lingxibi.controller;
 
+import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hjj.lingxibi.annotation.AuthCheck;
 import com.hjj.lingxibi.common.BaseResponse;
@@ -25,6 +26,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * 帖子接口
@@ -131,10 +134,21 @@ public class ChartController {
          String name = genChartByAIRequest.getName();
          String goal = genChartByAIRequest.getGoal();
          String chartType = genChartByAIRequest.getChartType();
-         // 校验
+         // 校验参数
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
         ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100,
                 ErrorCode.PARAMS_ERROR, "名称过长");
+        // 校验文件
+        long size = multipartFile.getSize();
+        String originalFilename = multipartFile.getOriginalFilename();
+        // 校验文件大小
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件超过1M");
+        // 校验文件后缀
+        String suffix = FileUtil.getSuffix(originalFilename);
+        final List<String> validFileSuffixList = Arrays.asList("png", "jpg", "svg", "webp", "jpeg");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "非法文件后缀");
+
 
         User loginUser = userService.getLoginUser(request);
         Long id = loginUser.getId();
@@ -161,7 +175,7 @@ public class ChartController {
         if (StringUtils.isNotBlank(chartType)) {
             userGoal += ",请使用" + chartType;
         }
-        userInput.append(goal).append("\n");
+        userInput.append(userGoal).append("\n");
         userInput.append("原始数据：").append("\n");
         // 压缩后的数据
         String csvData = ExcelUtils.excelToCsv(multipartFile);

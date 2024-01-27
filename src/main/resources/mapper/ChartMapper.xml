@@ -23,4 +23,10 @@
         chartType,genChart,genResult,userId,
         createTime,updateTime,isDelete
     </sql>
+
+
+
+    <select id="queryChartData" parameterType="string" resultType="java.util.Map">
+        ${querySql}
+    </select>
 </mapper>

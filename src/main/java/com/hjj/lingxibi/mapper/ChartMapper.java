@@ -1,7 +1,12 @@
 package com.hjj.lingxibi.mapper;
 
+import com.hjj.lingxibi.MainApplication;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
+import java.util.Map;
 
 /**
 * @author 17653
@@ -10,7 +15,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.hjj.lingxibi.model.entity.Chart
 */
 public interface ChartMapper extends BaseMapper<Chart> {
-
+    List<Map<String, Object>> queryChartData(@Param("querySql") String querySql);
 }
 
 
