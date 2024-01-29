@@ -132,6 +132,13 @@
             <artifactId>yucongming-java-sdk</artifactId>
             <version>0.0.3</version>
         </dependency>
+        <!--RabbitMQ-->
+        <dependency>
+            <groupId>com.rabbitmq</groupId>
+            <artifactId>amqp-client</artifactId>
+            <version>5.18.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
