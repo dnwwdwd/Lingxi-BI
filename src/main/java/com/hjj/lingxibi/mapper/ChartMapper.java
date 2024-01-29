@@ -1,8 +1,7 @@
 package com.hjj.lingxibi.mapper;
 
-import com.hjj.lingxibi.MainApplication;
-import com.hjj.lingxibi.model.entity.Chart;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.hjj.lingxibi.model.entity.Chart;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
