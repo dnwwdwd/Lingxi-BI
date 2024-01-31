@@ -1,6 +1,3 @@
-# 公共配置文件
-# @author <a href="https://github.com/liyupi">程序员鱼皮</a>
-# @from <a href="https://yupi.icu">编程导航知识星球</a>
 spring:
   application:
     name: Lingxi-BI
@@ -31,6 +28,13 @@ spring:
     database: 2
     host: localhost
     port: 6379
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: root
+    password: 123456
+    publisher-confirm-type: correlated #开启发布确认模式为异步确认
+    publisher-returns: true
   # Elasticsearch 配置
   # todo 需替换配置，然后取消注释
 #  elasticsearch:

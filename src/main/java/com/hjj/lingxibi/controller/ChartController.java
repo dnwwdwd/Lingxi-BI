@@ -3,10 +3,12 @@ package com.hjj.lingxibi.controller;
 import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hjj.lingxibi.annotation.AuthCheck;
+import com.hjj.lingxibi.bizmq.BIMessageProducer;
 import com.hjj.lingxibi.common.BaseResponse;
 import com.hjj.lingxibi.common.DeleteRequest;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.common.ResultUtils;
+import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.constant.UserConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.exception.ThrowUtils;
@@ -21,6 +23,7 @@ import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.ExcelUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -53,12 +56,13 @@ public class ChartController {
     private AIManager aiManager;
 
     @Resource
-    RedisLimiterManager redisLimiterManager;
+    private RedisLimiterManager redisLimiterManager;
 
     @Resource
-    ThreadPoolExecutor threadPoolExecutor;
-    // region 增删改查
+    private ThreadPoolExecutor threadPoolExecutor;
 
+    @Resource
+    private BIMessageProducer biMessageProducer;
     /**
      * 创建
      *
@@ -172,8 +176,7 @@ public class ChartController {
                 "{前端Echarts V5 的 option 配置对象js代码，合理地将数据进行可视化}\n" +
                 "【【【【【【\n" +
                 "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*/
-
-        long modelId = 1659171950288818178L;
+        long modelId = CommonConstant.BI_MODEL_ID;
 
         // 构造用户输入
         StringBuilder userInput = new StringBuilder();
@@ -214,14 +217,14 @@ public class ChartController {
         return ResultUtils.success(biResponse);
     }
 
-    /**
-     * 根据AI异步生成图表
+/*    *//**
+     * 根据AI异步生成图表，线程池实现
      *
      * @param multipartFile
      * @param genChartByAIRequest
      * @param request
      * @return
-     */
+     *//*
     @PostMapping("/gen/async")
     public BaseResponse<BIResponse> genChartByAIAsync(@RequestPart("file") MultipartFile multipartFile,
                                              GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
@@ -250,7 +253,7 @@ public class ChartController {
 
 
         // 无需写prompt，直接调用现有模型
-/*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
+*//*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
                 "分析需求：\n" +
                 "{数据分析的需求和目标}\n" +
                 "原始数据:\n" +
@@ -260,7 +263,7 @@ public class ChartController {
                 "【【【【【【\n" +
                 "{前端Echarts V5 的 option 配置对象js代码，合理地将数据进行可视化}\n" +
                 "【【【【【【\n" +
-                "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*/
+                "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*//*
 
         long modelId = 1659171950288818178L;
 
@@ -323,8 +326,83 @@ public class ChartController {
         BIResponse biResponse = new BIResponse();
         biResponse.setChartId(chart.getId());
         return ResultUtils.success(biResponse);
+    }*/
+
+
+    /**
+     * 根据AI异步生成图表，RabbitMQ实现
+     *
+     * @param multipartFile
+     * @param genChartByAIRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/gen/async")
+    public BaseResponse<BIResponse> genChartByAIAsyncMq(@RequestPart("file") MultipartFile multipartFile,
+                                                      GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+        String name = genChartByAIRequest.getName();
+        String goal = genChartByAIRequest.getGoal();
+        String chartType = genChartByAIRequest.getChartType();
+        // 校验参数
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100,
+                ErrorCode.PARAMS_ERROR, "名称过长");
+        // 校验文件
+        long size = multipartFile.getSize();
+        String originalFilename = multipartFile.getOriginalFilename();
+        // 校验文件大小
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件超过1M");
+        // 校验文件后缀
+        String suffix = FileUtil.getSuffix(originalFilename);
+        final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "非法文件后缀");
+        // 获取登录用户信息
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+        // 限流判断
+        redisLimiterManager.doRateLimit("genChartByAI_" + userId);
+
+
+        // 无需写prompt，直接调用现有模型
+/*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
+                "分析需求：\n" +
+                "{数据分析的需求和目标}\n" +
+                "原始数据:\n" +
+                "{csv格式的原始数据，用,作为分隔符}\n" +
+                "请根据这两部分内容，按照以下格式生成内容（此外不要输出任何多余的开头、结尾、注释）\n" +
+                "\n" +
+                "【【【【【【\n" +
+                "{前端Echarts V5 的 option 配置对象js代码，合理地将数据进行可视化}\n" +
+                "【【【【【【\n" +
+                "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*/
+
+        long modelId = CommonConstant.BI_MODEL_ID;
+        // 压缩后的数据
+        String csvData = ExcelUtils.excelToCsv(multipartFile);
+
+        // 插入数据到数据库
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setStatus("wait");
+        chart.setUserId(userId);
+        boolean saveResult = chartService.save(chart);
+        ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+        // todo 建议处理任务队列满了后抛异常的情况
+        Long newChartId = chart.getId();
+        biMessageProducer.sendMessage(String.valueOf(newChartId));
+
+        BIResponse biResponse = new BIResponse();
+        biResponse.setChartId(newChartId);
+        return ResultUtils.success(biResponse);
     }
-    private void handlerChartUpdateError(long chartId, String execMessage) {
+
+
+/*    private void handlerChartUpdateError(long chartId, String execMessage) {
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chartId);
         updateChartResult.setStatus("failed");
@@ -333,7 +411,7 @@ public class ChartController {
         if (!updateResult) {
             log.error("更新图表失败状态失败" + chartId + "," + execMessage);
         }
-    }
+    }*/
 
     /**
      * 根据 id 获取

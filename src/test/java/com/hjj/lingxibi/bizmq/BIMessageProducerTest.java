@@ -6,9 +6,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import javax.annotation.Resource;
 
 @SpringBootTest
-class MyMessageProducerTest {
+class BIMessageProducerTest {
     @Resource
-    private MyMessageProducer myMessageProducer;
+    private BIMessageProducer myMessageProducer;
 
     @Test
     void sendMessage() {
