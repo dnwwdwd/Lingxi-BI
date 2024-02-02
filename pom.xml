@@ -12,7 +12,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.hjj</groupId>
-    <artifactId>lingxibi</artifactId>
+    <artifactId>Lingxi-BI</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>Lingxi-BI</name>
     <properties>
