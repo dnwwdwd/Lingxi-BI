@@ -15,8 +15,6 @@ import java.util.Map;
 */
 public interface ChartMapper extends BaseMapper<Chart> {
     List<Map<String, Object>> queryChartData(@Param("querySql") String querySql);
+
+    Long queryUserIdByChartId(@Param("id") Long id);
 }
-
-
-
-

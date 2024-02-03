@@ -27,8 +27,11 @@
     </sql>
 
 
-
     <select id="queryChartData" parameterType="string" resultType="java.util.Map">
         ${querySql}
+    </select>
+
+    <select id="queryUserIdByChartId" parameterType="long" resultType="long">
+        select userId from chart where id = #{id}
     </select>
 </mapper>

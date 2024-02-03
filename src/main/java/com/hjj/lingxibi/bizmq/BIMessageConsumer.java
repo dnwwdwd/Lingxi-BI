@@ -14,6 +14,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.AmqpHeaders;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +32,9 @@ public class BIMessageConsumer {
 
     @Resource
     private AIManager aiManager;
+
+    @Resource
+    RedisTemplate<String, Object> redisTemplate;
 
     // 制定消费者监听哪个队列和消息确认机制
     @SneakyThrows
@@ -81,6 +86,10 @@ public class BIMessageConsumer {
             channel.basicNack(deliveryTag, false, false);
             handlerChartUpdateError(chart.getId(), "更新图表成功状态失败");
         }
+        Long userId = chartService.queryUserIdByChartId(chartId);
+        String myChartId = String.format("lingxibi:chart:list:%s", userId);
+        redisTemplate.delete(myChartId);
+
         // 如果任务执行成功，手动执行ack
         channel.basicAck(deliveryTag, false);
     }

@@ -20,4 +20,5 @@ public interface ChartService extends IService<Chart> {
      */
     QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest);
 
+    Long queryUserIdByChartId(Long id);
 }

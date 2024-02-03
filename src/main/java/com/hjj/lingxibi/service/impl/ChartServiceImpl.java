@@ -2,7 +2,9 @@ package com.hjj.lingxibi.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.constant.CommonConstant;
+import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.mapper.ChartMapper;
 import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
 import com.hjj.lingxibi.model.entity.Chart;
@@ -12,6 +14,7 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Resource;
 import java.util.List;
 
 /**
@@ -22,7 +25,8 @@ import java.util.List;
 @Service
 public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     implements ChartService{
-
+    @Resource
+    ChartMapper chartMapper;
     /**
      * 获取查询包装类
      *
@@ -57,8 +61,17 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         return queryWrapper;
     }
 
-
-
+    @Override
+    public Long queryUserIdByChartId(Long id) {
+        if(id == null || id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long userId = chartMapper.queryUserIdByChartId(id);
+        if(userId == null || userId <= 0) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR);
+        }
+        return userId;
+    }
 }
 
 
