@@ -44,4 +44,3 @@ create table chart
     isDelete    tinyint      default 0                 null comment '是否删除（0-不删除 1-删除）'
 )
     comment '图表信息表';
-

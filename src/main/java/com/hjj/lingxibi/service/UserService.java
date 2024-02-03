@@ -118,4 +118,9 @@ public interface UserService extends IService<User> {
      * @return
      */
     QueryWrapper<User> getQueryWrapper(UserQueryRequest userQueryRequest);
+
+    /**
+     * 查询所用用户的id
+     */
+    List<Long> queryUsersId();
 }

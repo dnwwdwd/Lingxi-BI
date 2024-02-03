@@ -24,6 +24,8 @@ import com.hjj.lingxibi.utils.ExcelUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -32,6 +34,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 帖子接口
@@ -61,6 +64,9 @@ public class ChartController {
 
     @Resource
     private BIMessageProducer biMessageProducer;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
     /**
      * 创建
      *
@@ -461,14 +467,31 @@ public class ChartController {
         if (chartQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User loginUser = userService.getLoginUser(request);
-        chartQueryRequest.setUserId(loginUser.getId());
         long current = chartQueryRequest.getCurrent();
         long size = chartQueryRequest.getPageSize();
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+        ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.NOT_LOGIN_ERROR);
+        String myChartKeyId = String.format("lingxibi:chart:list:%s", userId);
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        Page<Chart> myChartPage = (Page<Chart>) valueOperations.get(myChartKeyId);
+        if(myChartPage != null) {
+            log.info("从缓存查询我的图表信息成功");
+            return ResultUtils.success(myChartPage);
+        }
+        // 无缓存查询数据库
+        chartQueryRequest.setUserId(userId);
         // 限制爬虫
         ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
         Page<Chart> chartPage = chartService.page(new Page<>(current, size),
                 chartService.getQueryWrapper(chartQueryRequest));
+        ThrowUtils.throwIf(chartPage == null, ErrorCode.SYSTEM_ERROR);
+        // 从数据库查询成功，写入缓存
+        try{
+            valueOperations.set(myChartKeyId, chartPage, 30, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.error("写入缓存失败{}", e);
+        }
         return ResultUtils.success(chartPage);
     }
 

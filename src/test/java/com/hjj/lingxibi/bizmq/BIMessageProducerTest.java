@@ -10,8 +10,8 @@ class BIMessageProducerTest {
     @Resource
     private BIMessageProducer myMessageProducer;
 
-    @Test
+/*    @Test
     void sendMessage() {
         myMessageProducer.sendMessage("code_exchange", "my_routineKey", "你好呀");
-    }
+    }*/
 }

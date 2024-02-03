@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.List;
+
 /**
  * 用户服务测试
  *
@@ -31,5 +33,11 @@ public class UserServiceTest {
         } catch (Exception e) {
 
         }
+    }
+
+    @Test
+    void queryUsersIdTest() {
+        List<Long> usersIdList = userService.queryUsersId();
+        System.out.println(usersIdList);
     }
 }

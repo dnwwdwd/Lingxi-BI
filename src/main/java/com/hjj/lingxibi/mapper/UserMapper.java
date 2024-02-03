@@ -3,6 +3,8 @@ package com.hjj.lingxibi.mapper;
 import com.hjj.lingxibi.model.entity.User;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 
+import java.util.List;
+
 /**
 * @author 17653
 * @description 针对表【user(用户)】的数据库操作Mapper
@@ -10,9 +12,5 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 * @Entity com.hjj.lingxibi.model.entity.User
 */
 public interface UserMapper extends BaseMapper<User> {
-
+    List<Long> queryUsersId();
 }
-
-
-
-
