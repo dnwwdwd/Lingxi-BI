@@ -16,6 +16,10 @@ public class BIMessageProducer {
      * @param message
      */
     public void sendMessage(String message) {
-        rabbitTemplate.convertAndSend(BIMQConstant.BI_EXCHANGE_NAME, BIMQConstant.BI_ROUTING_KEY, message);
+        rabbitTemplate.convertAndSend("bi_common_exchange", "bi_common_routingKey", message);
     }
+
+/*    public void sendMessage(String message) {
+        rabbitTemplate.convertAndSend(BIMQConstant.BI_EXCHANGE_NAME, BIMQConstant.BI_ROUTING_KEY, message);
+    }*/
 }

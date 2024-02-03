@@ -33,14 +33,14 @@ public class BIMessageConsumer {
 
     // 制定消费者监听哪个队列和消息确认机制
     @SneakyThrows
-    @RabbitListener(queues = {BIMQConstant.BI_QUEUE_NAME}, ackMode = "MANUAL")
+    @RabbitListener(queues = {"bi_common_queue"}, ackMode = "MANUAL")
     public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         log.info("receiveMessage is {}", message);
         if(StringUtils.isBlank(message)) {
             // 如果失败，消息拒绝
             channel.basicNack(deliveryTag, false, false);
             log.info("消息为空拒绝接收");
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "消息为空");
+            log.info("此消息正在被转发到死信队列中");
         }
 
         long chartId = Long.parseLong(message);
