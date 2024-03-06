@@ -22,10 +22,10 @@ import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.ExcelUtils;
 import lombok.extern.slf4j.Slf4j;
+import net.bytebuddy.implementation.bytecode.Throw;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -34,7 +34,6 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 图表接口
@@ -135,7 +134,7 @@ public class ChartController {
     }
 
     /**
-     * 根据AI同步生成图表
+     * 根据AI同步生成图表（同步）
      *
      * @param multipartFile
      * @param genChartByAIRequest
@@ -162,7 +161,6 @@ public class ChartController {
         String suffix = FileUtil.getSuffix(originalFilename);
         final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "非法文件后缀");
-
 
         User loginUser = userService.getLoginUser(request);
         Long id = loginUser.getId();
@@ -212,6 +210,15 @@ public class ChartController {
         chart.setGenResult(genResult);
         chart.setUserId(id);
         boolean saveResult = chartService.save(chart);
+        if (saveResult) {
+            Chart chart1 = new Chart();
+            chart1.setId(chart.getId());
+            chart1.setStatus("succeed");
+            boolean b = chartService.updateById(chart1);
+            if (!b) {
+                ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+            }
+        }
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
         BIResponse biResponse = new BIResponse();
         biResponse.setGenChart(genChart);
@@ -331,14 +338,14 @@ public class ChartController {
     }*/
 
 
-    /**
-     * 根据AI异步生成图表，RabbitMQ实现
+/*    *//**
+     * 根据AI异步生成图表，RabbitMQ实现（无重试机制）
      *
      * @param multipartFile
      * @param genChartByAIRequest
      * @param request
      * @return
-     */
+     *//*
     @PostMapping("/gen/async")
     public BaseResponse<BIResponse> genChartByAIAsyncMq(@RequestPart("file") MultipartFile multipartFile,
                                                       GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
@@ -367,7 +374,7 @@ public class ChartController {
 
 
         // 无需写prompt，直接调用现有模型
-/*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
+*//*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
                 "分析需求：\n" +
                 "{数据分析的需求和目标}\n" +
                 "原始数据:\n" +
@@ -377,7 +384,7 @@ public class ChartController {
                 "【【【【【【\n" +
                 "{前端Echarts V5 的 option 配置对象js代码，合理地将数据进行可视化}\n" +
                 "【【【【【【\n" +
-                "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*/
+                "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*//*
 
         long modelId = CommonConstant.BI_MODEL_ID;
         // 压缩后的数据
@@ -400,6 +407,26 @@ public class ChartController {
 
         BIResponse biResponse = new BIResponse();
         biResponse.setChartId(newChartId);
+        return ResultUtils.success(biResponse);
+    }*/
+
+
+
+
+    /**
+     * 根据AI异步生成图表，RabbitMQ实现
+     *
+     * @param multipartFile
+     * @param genChartByAIRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/gen/async")
+    public BaseResponse<BIResponse> genChartByAIAsyncMq(@RequestPart("file") MultipartFile multipartFile,
+                                                        GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(multipartFile == null, ErrorCode.PARAMS_ERROR, "请传入文件");
+        ThrowUtils.throwIf(genChartByAIRequest == null, ErrorCode.PARAMS_ERROR, "请输入分析诉求或图表标题");
+        BIResponse biResponse = chartService.genChartByAIAsyncMq(multipartFile, genChartByAIRequest, request);
         return ResultUtils.success(biResponse);
     }
 
@@ -469,14 +496,14 @@ public class ChartController {
         long size = chartQueryRequest.getPageSize();
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
-        ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.NOT_LOGIN_ERROR);
-        String myChartKeyId = String.format("lingxibi:chart:list:%s", userId);
-        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
-        Page<Chart> myChartPage = (Page<Chart>) valueOperations.get(myChartKeyId);
-        if(myChartPage != null) {
-            log.info("从缓存查询我的图表信息成功");
-            return ResultUtils.success(myChartPage);
-        }
+        // ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.NOT_LOGIN_ERROR);
+        // String myChartKeyId = String.format("lingxibi:chart:list:%s", userId);
+        // ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        // Page<Chart> myChartPage = (Page<Chart>) valueOperations.get(myChartKeyId);
+        // if(myChartPage != null) {
+        //     log.info("从缓存查询我的图表信息成功");
+        //     return ResultUtils.success(myChartPage);
+        // }
         // 无缓存查询数据库
         chartQueryRequest.setUserId(userId);
         // 限制爬虫
@@ -485,11 +512,11 @@ public class ChartController {
                 chartService.getQueryWrapper(chartQueryRequest));
         ThrowUtils.throwIf(chartPage == null, ErrorCode.SYSTEM_ERROR);
         // 从数据库查询成功，写入缓存
-        try{
-            valueOperations.set(myChartKeyId, chartPage, 30, TimeUnit.MINUTES);
-        } catch (Exception e) {
-            log.error("写入缓存失败{}", e);
-        }
+        // try{
+        //     valueOperations.set(myChartKeyId, chartPage, 30, TimeUnit.MINUTES);
+        // } catch (Exception e) {
+        //     log.error("写入缓存失败{}", e);
+        // }
         return ResultUtils.success(chartPage);
     }
 

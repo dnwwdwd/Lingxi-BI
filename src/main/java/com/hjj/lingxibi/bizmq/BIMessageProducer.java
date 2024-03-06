@@ -1,6 +1,5 @@
 package com.hjj.lingxibi.bizmq;
 
-import com.hjj.lingxibi.constant.BIMQConstant;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 

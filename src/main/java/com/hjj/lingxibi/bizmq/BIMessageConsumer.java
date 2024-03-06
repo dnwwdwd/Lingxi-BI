@@ -1,25 +1,24 @@
 package com.hjj.lingxibi.bizmq;
 
+import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.common.ErrorCode;
-import com.hjj.lingxibi.constant.BIMQConstant;
 import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.manager.AIManager;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.service.ChartService;
 import com.rabbitmq.client.Channel;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
+import java.io.IOException;
 
 @Component
 @Slf4j
@@ -34,16 +33,26 @@ public class BIMessageConsumer {
     private AIManager aiManager;
 
     @Resource
-    RedisTemplate<String, Object> redisTemplate;
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Resource
+    private Retryer<Boolean> retryer;
+
+    @Resource
+    private BIMessageProducer biMessageProducer;
 
     // 制定消费者监听哪个队列和消息确认机制
-    @SneakyThrows
     @RabbitListener(queues = {"bi_common_queue"}, ackMode = "MANUAL")
     public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         log.info("receiveMessage is {}", message);
         if(StringUtils.isBlank(message)) {
             // 如果失败，消息拒绝
-            channel.basicNack(deliveryTag, false, false);
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (IOException e) {
+                log.info("消息应答失败：", e);
+                throw new RuntimeException(e);
+            }
             log.info("消息为空拒绝接收");
             log.info("此消息正在被转发到死信队列中");
         }
@@ -51,8 +60,13 @@ public class BIMessageConsumer {
         long chartId = Long.parseLong(message);
         Chart chart = chartService.getById(chartId);
         if (chart == null) {
-            channel.basicNack(deliveryTag, false, false);
-            log.info("图标为空拒绝接收");
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (IOException e) {
+                log.info("消息应答失败：", e);
+                throw new RuntimeException(e);
+            }
+            log.info("图表为空拒绝接收");
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "图表为空");
         }
 
@@ -62,7 +76,12 @@ public class BIMessageConsumer {
         updateChart.setStatus("running");
         boolean b = chartService.updateById(updateChart);
         if (!b) {
-            channel.basicNack(deliveryTag, false, false);
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (IOException e) {
+                log.info("消息应答失败：", e);
+                throw new RuntimeException(e);
+            }
             handlerChartUpdateError(chart.getId(), "更新图表执行状态失败");
             return;
         }
@@ -70,9 +89,14 @@ public class BIMessageConsumer {
         String result = aiManager.doChat(CommonConstant.BI_MODEL_ID, buildUserInput(chart));
         String[] splits = result.split("【【【【【");
         if (splits.length < 3) {
-            channel.basicNack(deliveryTag, false, false);
-            handlerChartUpdateError(chart.getId(), "AI生成错误");
-            return;
+            try {
+                retryer.call(() -> true);
+                biMessageProducer.sendMessage(String.valueOf(chartId));
+                return;
+            } catch (Exception e) {
+                log.info("由于AI接口生成结果错误的重试失败了", e);
+                throw new RuntimeException(e);
+            }
         }
         String genChart = splits[1].trim();
         String genResult = splits[2].trim();
@@ -83,15 +107,24 @@ public class BIMessageConsumer {
         updateChartResult.setStatus("succeed");
         boolean updateResult = chartService.updateById(updateChartResult);
         if (!updateResult) {
-            channel.basicNack(deliveryTag, false, false);
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (IOException e) {
+                log.info("消息应答失败：", e);
+                throw new RuntimeException(e);
+            }
             handlerChartUpdateError(chart.getId(), "更新图表成功状态失败");
         }
-        Long userId = chartService.queryUserIdByChartId(chartId);
-        String myChartId = String.format("lingxibi:chart:list:%s", userId);
-        redisTemplate.delete(myChartId);
+        // Long userId = chartService.queryUserIdByChartId(chartId);
+        // String myChartId = String.format("lingxibi:chart:list:%s", userId);
 
         // 如果任务执行成功，手动执行ack
-        channel.basicAck(deliveryTag, false);
+        try {
+            channel.basicAck(deliveryTag, false);
+        } catch (IOException e) {
+            log.info("消息应答失败：", e);
+            throw new RuntimeException(e);
+        }
     }
 
 

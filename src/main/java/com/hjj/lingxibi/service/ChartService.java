@@ -1,11 +1,14 @@
 package com.hjj.lingxibi.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
-import com.hjj.lingxibi.model.entity.Chart;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
+import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
+import com.hjj.lingxibi.model.entity.Chart;
+import com.hjj.lingxibi.model.vo.BIResponse;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import javax.servlet.http.HttpServletRequest;
 
 /**
 * @author 17653
@@ -21,4 +24,6 @@ public interface ChartService extends IService<Chart> {
     QueryWrapper<Chart> getQueryWrapper(ChartQueryRequest chartQueryRequest);
 
     Long queryUserIdByChartId(Long id);
+
+    BIResponse genChartByAIAsyncMq(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, HttpServletRequest request);
 }

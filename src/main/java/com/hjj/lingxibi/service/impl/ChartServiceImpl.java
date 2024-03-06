@@ -1,21 +1,39 @@
 package com.hjj.lingxibi.service.impl;
 
+import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.github.rholder.retry.RetryException;
+import com.github.rholder.retry.Retryer;
+import com.hjj.lingxibi.bizmq.BIMessageProducer;
 import com.hjj.lingxibi.common.ErrorCode;
+import com.hjj.lingxibi.common.ResultUtils;
 import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.exception.BusinessException;
+import com.hjj.lingxibi.exception.ThrowUtils;
+import com.hjj.lingxibi.manager.RedisLimiterManager;
 import com.hjj.lingxibi.mapper.ChartMapper;
 import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
+import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
 import com.hjj.lingxibi.model.entity.Chart;
+import com.hjj.lingxibi.model.entity.User;
+import com.hjj.lingxibi.model.vo.BIResponse;
 import com.hjj.lingxibi.service.ChartService;
+import com.hjj.lingxibi.service.UserService;
+import com.hjj.lingxibi.utils.ExcelUtils;
 import com.hjj.lingxibi.utils.SqlUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.store.RateLimiter;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 /**
 * @author 17653
@@ -23,10 +41,24 @@ import java.util.List;
 * @createDate 2024-01-25 19:35:15
 */
 @Service
+@Slf4j
 public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     implements ChartService{
+
     @Resource
-    ChartMapper chartMapper;
+    private UserService userService;
+
+    @Resource
+    private ChartMapper chartMapper;
+
+    @Resource
+    private RedisLimiterManager redisLimiterManager;
+
+    @Resource
+    private BIMessageProducer biMessageProducer;
+
+    @Resource
+    private Retryer<Boolean> retryer;
     /**
      * 获取查询包装类
      *
@@ -71,6 +103,103 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             throw new BusinessException(ErrorCode.SYSTEM_ERROR);
         }
         return userId;
+    }
+
+    @Override
+    public BIResponse genChartByAIAsyncMq(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest,
+                                          HttpServletRequest request) {
+        String name = genChartByAIRequest.getName();
+        String goal = genChartByAIRequest.getGoal();
+        String chartType = genChartByAIRequest.getChartType();
+        // 校验参数
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100,
+                ErrorCode.PARAMS_ERROR, "名称过长");
+        // 校验文件
+        long size = multipartFile.getSize();
+        String originalFilename = multipartFile.getOriginalFilename();
+        // 校验文件大小
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件超过1M");
+        // 校验文件后缀
+        String suffix = FileUtil.getSuffix(originalFilename);
+        final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "非法文件后缀");
+        // 获取登录用户信息
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+        // 限流判断
+        redisLimiterManager.doRateLimit("genChartByAI_" + userId);
+
+        // 无需写prompt，直接调用现有模型
+/*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
+                "分析需求：\n" +
+                "{数据分析的需求和目标}\n" +
+                "原始数据:\n" +
+                "{csv格式的原始数据，用,作为分隔符}\n" +
+                "请根据这两部分内容，按照以下格式生成内容（此外不要输出任何多余的开头、结尾、注释）\n" +
+                "\n" +
+                "【【【【【【\n" +
+                "{前端Echarts V5 的 option 配置对象js代码，合理地将数据进行可视化}\n" +
+                "【【【【【【\n" +
+                "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*/
+
+        long modelId = CommonConstant.BI_MODEL_ID;
+        // 压缩后的数据
+        String csvData = ExcelUtils.excelToCsv(multipartFile);
+
+
+        // 插入数据到数据库
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setStatus("wait");
+        chart.setUserId(userId);
+
+        BIResponse biResponse = null;
+
+
+        // 尝试初次保存至数据库
+        boolean saveResult = this.save(chart);
+
+        if (saveResult) {
+            log.info("图表初次保存至数据库成功");
+            Long newChartId = chart.getId();
+            biMessageProducer.sendMessage(String.valueOf(newChartId));
+            // 创建 BIResponse 对象并返回
+            biResponse = new BIResponse();
+            biResponse.setChartId(newChartId);
+            return biResponse;
+
+        } else {
+            try {
+                // 使用 Guava Retryer 进行重试
+                retryer.call(() -> {
+                    boolean retrySaveResult = this.save(chart);
+                    if (!retrySaveResult) {
+                        log.warn("图表保存至数据库仍然失败，进行重试...");
+                    }
+                    return !retrySaveResult; // 继续重试的条件
+                });
+                // 重试成功后发送消息
+                Long newChartId = chart.getId();
+                biMessageProducer.sendMessage(String.valueOf(newChartId));
+
+                // 创建 BIResponse 对象并返回
+                biResponse = new BIResponse();
+                biResponse.setChartId(newChartId);
+                return biResponse;
+            } catch (RetryException e) {
+                log.error("调用 AI 接口失败——重试异常：{}", e);
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                log.error("调用 AI 接口异常：{}", e);
+                throw new RuntimeException(e);
+            }
+        }
+
     }
 }
 
