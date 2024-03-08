@@ -560,4 +560,12 @@ public class ChartController {
         boolean result = chartService.updateById(chart);
         return ResultUtils.success(result);
     }
+
+    /**
+     * 修改图表重新生成
+     */
+    @PostMapping("/regen")
+    public BaseResponse<BIResponse> reGenChartByAsyncMq(@RequestBody Chart chart) {
+
+    }
 }
