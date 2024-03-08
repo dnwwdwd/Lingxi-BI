@@ -94,8 +94,15 @@ public class BIMessageConsumer {
                 biMessageProducer.sendMessage(String.valueOf(chartId));
                 return;
             } catch (Exception e) {
-                log.info("由于AI接口生成结果错误的重试失败了", e);
-                throw new RuntimeException(e);
+                log.error("调用 AI 接口失败—————重试异常：", e);
+                Chart failedChart = new Chart();
+                failedChart.setId(chart.getId());
+                failedChart.setStatus("failed");
+                boolean statusSaveResult = chartService.updateById(failedChart);
+                if (!statusSaveResult) {
+                    throw new RuntimeException("更新图表状态为失败失败了");
+                }
+                throw new RuntimeException("由于AI接口生成结果错误的重试失败了");
             }
         }
         String genChart = splits[1].trim();

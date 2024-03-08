@@ -2,6 +2,7 @@ package com.hjj.lingxibi.controller;
 
 import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.annotation.AuthCheck;
 import com.hjj.lingxibi.bizmq.BIMessageProducer;
 import com.hjj.lingxibi.common.BaseResponse;
@@ -22,7 +23,6 @@ import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.ExcelUtils;
 import lombok.extern.slf4j.Slf4j;
-import net.bytebuddy.implementation.bytecode.Throw;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -64,6 +64,9 @@ public class ChartController {
 
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Resource
+    private Retryer<Boolean> retryer;
     /**
      * 创建
      *
@@ -194,9 +197,18 @@ public class ChartController {
 
         String result = aiManager.doChat(modelId, userInput.toString());
         String[] splits = result.split("【【【【【");
+
+
         if (splits.length < 3) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 生成错误");
+            try {
+                retryer.call(() -> true);
+                genChartByAI(multipartFile, genChartByAIRequest, request);
+            } catch (Exception e){
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI生成错误");
+            }
         }
+
+
         String genChart = splits[1];
         String genResult = splits[2];
 
@@ -414,7 +426,7 @@ public class ChartController {
 
 
     /**
-     * 根据AI异步生成图表，RabbitMQ实现
+     * 根据AI异步生成图表，RabbitMQ实现（有重试机制）
      *
      * @param multipartFile
      * @param genChartByAIRequest

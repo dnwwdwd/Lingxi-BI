@@ -7,7 +7,6 @@ import com.github.rholder.retry.RetryException;
 import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.bizmq.BIMessageProducer;
 import com.hjj.lingxibi.common.ErrorCode;
-import com.hjj.lingxibi.common.ResultUtils;
 import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.exception.ThrowUtils;
@@ -25,7 +24,6 @@ import com.hjj.lingxibi.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.lucene.store.RateLimiter;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -160,10 +158,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
         BIResponse biResponse = null;
 
-
         // 尝试初次保存至数据库
         boolean saveResult = this.save(chart);
 
+        // 图表保存成功直接发消息给MQ并返回图表id
         if (saveResult) {
             log.info("图表初次保存至数据库成功");
             Long newChartId = chart.getId();
@@ -173,33 +171,48 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             biResponse.setChartId(newChartId);
             return biResponse;
 
+            // 如果图表保存失败，则尝试重试 -> 重新保存图表
         } else {
             try {
                 // 使用 Guava Retryer 进行重试
-                retryer.call(() -> {
+                Boolean callResult = retryer.call(() -> {
                     boolean retrySaveResult = this.save(chart);
                     if (!retrySaveResult) {
                         log.warn("图表保存至数据库仍然失败，进行重试...");
                     }
                     return !retrySaveResult; // 继续重试的条件
                 });
-                // 重试成功后发送消息
+                // 重试保存至数据库成功后发送消息
                 Long newChartId = chart.getId();
-                biMessageProducer.sendMessage(String.valueOf(newChartId));
-
+                if (callResult) {
+                    // 图表信息重新保存至数据库向MQ投递消息
+                    try {
+                        biMessageProducer.sendMessage(String.valueOf(newChartId));
+                    } catch (Exception e) {
+                        log.error("图表成功保存至数据库，但是消息投递失败");
+                        Chart failedChart = new Chart();
+                        failedChart.setId(newChartId);
+                        failedChart.setStatus("failed");
+                        boolean b = this.updateById(failedChart);
+                        if (!b) {
+                            throw new RuntimeException("修改图表状态信息为失败失败了");
+                        }
+                        throw new BusinessException(ErrorCode.SYSTEM_ERROR, "调用 AI 接口失败");
+                    }
+                }
                 // 创建 BIResponse 对象并返回
                 biResponse = new BIResponse();
                 biResponse.setChartId(newChartId);
                 return biResponse;
             } catch (RetryException e) {
-                log.error("调用 AI 接口失败——重试异常：{}", e);
-                throw new RuntimeException(e);
+                // 如果重试了出现异常就要将图表状态更新为failed，并打印日志
+                log.error("重试保存至数据库失败", e);
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "重试保存至数据库失败");
             } catch (ExecutionException e) {
-                log.error("调用 AI 接口异常：{}", e);
-                throw new RuntimeException(e);
+                log.error("重试保存至数据库失败", e);
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "重试保存至数据库失败");
             }
         }
-
     }
 }
 

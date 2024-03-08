@@ -2,17 +2,22 @@ package com.hjj.lingxibi;
 
 import com.github.rholder.retry.*;
 import com.google.common.base.Predicates;
+import com.hjj.lingxibi.bizmq.BIMessageProducer;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.web.client.RestTemplate;
 
+import javax.annotation.Resource;
 import java.util.concurrent.TimeUnit;
 
 @SpringBootTest
         (classes = TestClassSecond.class)
 public class TestClassSecond {
+
+    @Resource
+    private BIMessageProducer biMessageProducer;
 
     public static final Logger log = LoggerFactory.getLogger(TestClassSecond.class);
 
@@ -63,6 +68,8 @@ public class TestClassSecond {
         if (result.length() > 10000) {
             return false;
         }
+
         return true;
+
     }
 }
