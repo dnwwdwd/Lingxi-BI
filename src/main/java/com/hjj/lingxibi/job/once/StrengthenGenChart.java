@@ -1,52 +1,54 @@
 package com.hjj.lingxibi.job.once;
 
 
-import cn.hutool.json.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class StrengthenGenChart {
-    public static void main(String[] args) {
-            String inputJson = "{\n" +
-                    "  \"legend\": {\n" +
-                    "    \"data\": [\"用户数\"]\n" +
-                    "  },\n" +
-                    "  \"tooltip\": {\n" +
-                    "    \"trigger\": \"item\"\n" +
-                    "  },\n" +
-                    "  \"series\": [\n" +
-                    "    {\n" +
-                    "      \"name\": \"用户增长\",\n" +
-                    "      \"type\": \"pie\",\n" +
-                    "      \"radius\": \"50%\",\n" +
-                    "      \"data\": [\n" +
-                    "        {\"value\": 10, \"name\": \"1号\"},\n" +
-                    "        {\"value\": 20, \"name\": \"2号\"},\n" +
-                    "        {\"value\": 30, \"name\": \"3号\"},\n" +
-                    "        {\"value\": 21, \"name\": \"4号\"},\n" +
-                    "        {\"value\": 20, \"name\": \"5号\"},\n" +
-                    "        {\"value\": 29, \"name\": \"6号\"},\n" +
-                    "        {\"value\": 24, \"name\": \"7号\"},\n" +
-                    "        {\"value\": 31, \"name\": \"8号\"},\n" +
-                    "        {\"value\": 40, \"name\": \"9号\"},\n" +
-                    "        {\"value\": 38, \"name\": \"10号\"},\n" +
-                    "        {\"value\": 43, \"name\": \"11号\"}\n" +
-                    "      ],\n" +
-                    "      \"label\": {\n" +
-                    "        \"show\": true,\n" +
-                    "        \"formatter\": \"{b}: {c}人\"\n" +
-                    "      }\n" +
-                    "    }\n" +
-                    "  ]\n" +
-                    "}";
-            JSONObject jsonObject = new JSONObject(inputJson);
-            JSONObject seriesArray = jsonObject.getJSONArray("series").getJSONObject(0); // 获取series数组的第一个元素
+    public static String transformStringToJson(String inputString) {
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            JsonNode jsonNode = mapper.readTree(inputString);
 
-            // 检查是否存在toolbox字段，如果不存在则添加
-            if (!jsonObject.containsKey("toolbox")) {
-                jsonObject.put("toolbox", new JSONObject().put("feature", new JSONObject().put("saveAsImage", new JSONObject())));
-                jsonObject.getJSONArray("series").put(seriesArray); // 将series数组的第一个元素移动到数组末尾，以便在其后添加toolbox
+            // Check if "toolbox" already exists in the JSON
+            boolean toolboxExists = checkToolboxExists(jsonNode);
+
+            // If "toolbox" doesn't exist, add it to the JSON
+            if (!toolboxExists) {
+                ObjectNode toolboxNode = mapper.createObjectNode();
+                ObjectNode featureNode = toolboxNode.putObject("feature");
+                featureNode.putObject("saveAsImage");
+                ((ObjectNode) jsonNode).set("toolbox", toolboxNode);
             }
-            // 输出转换后的JSON字符串
-        System.out.println(jsonObject.toString());
+
+            String outputString = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode);
+            return outputString;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
+    private static boolean checkToolboxExists(JsonNode node) {
+        if (node.isObject()) {
+            ObjectNode objectNode = (ObjectNode) node;
+            if (objectNode.has("toolbox")) {
+                return true;
+            }
+            for (JsonNode childNode : objectNode) {
+                if (checkToolboxExists(childNode)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static void main(String[] args) {
+        String inputString = "{\"legend\":{\"data\":[\"用户数\"]},\"tooltip\":{\"trigger\":\"item\"},\"series\":[{\"name\":\"用户增长\",\"type\":\"pie\",\"radius\":\"50%\",\"data\":[{\"value\":10,\"name\":\"1号\"},{\"value\":20,\"name\":\"2号\"},{\"value\":30,\"name\":\"3号\"},{\"value\":21,\"name\":\"4号\"},{\"value\":20,\"name\":\"5号\"},{\"value\":29,\"name\":\"6号\"},{\"value\":24,\"name\":\"7号\"},{\"value\":31,\"name\":\"8号\"},{\"value\":40,\"name\":\"9号\"},{\"value\":38,\"name\":\"10号\"},{\"value\":43,\"name\":\"11号\"}],\"label\":{\"show\":true,\"formatter\":\"{b}: {c}人\"}}]}";
+
+        String outputString = transformStringToJson(inputString);
+        System.out.println(outputString);
+    }
 }

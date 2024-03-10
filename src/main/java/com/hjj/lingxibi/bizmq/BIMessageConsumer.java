@@ -1,8 +1,8 @@
 package com.hjj.lingxibi.bizmq;
 
-import cn.hutool.json.JSONObject;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.constant.CommonConstant;
@@ -11,7 +11,6 @@ import com.hjj.lingxibi.manager.AIManager;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.service.ChartService;
 import com.rabbitmq.client.Channel;
-import jdk.nashorn.internal.ir.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -111,7 +110,7 @@ public class BIMessageConsumer {
         }
         String genChart = splits[1].trim();
         // 将生成的Echarts代码进行增强，拓展下载图表功能
-
+        genChart = strengthenGenChart(genChart);
         String genResult = splits[2].trim();
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chart.getId());
@@ -178,18 +177,49 @@ public class BIMessageConsumer {
         return userInput.toString();
     }
 
-    private String strengthenGenChart(String genChart) {
-        String inputJson = genChart;
+    // 将生成的Echarts代码进行增强，拓展下载图表功能
+    private String strengthenGenChart(String inputString) {
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            JsonNode jsonNode = mapper.readTree(inputString);
 
-        JSONObject jsonObject = new JSONObject(inputJson);
-        JSONObject seriesArray = jsonObject.getJSONArray("series").getJSONObject(0); // 获取series数组的第一个元素
+            boolean toolboxExists = addToolboxToSeries(jsonNode);
 
-        // 检查是否存在toolbox字段，如果不存在则添加
-        if (!jsonObject.containsKey("toolbox")) {
-            jsonObject.put("toolbox", new JSONObject().put("feature", new JSONObject().put("saveAsImage", new JSONObject())));
-            jsonObject.getJSONArray("series").put(seriesArray); // 将series数组的第一个元素移动到数组末尾，以便在其后添加toolbox
+            if (!toolboxExists) {
+                ObjectNode toolboxNode = mapper.createObjectNode();
+                ObjectNode featureNode = toolboxNode.putObject("feature");
+                featureNode.putObject("saveAsImage");
+                ((ObjectNode) jsonNode).set("toolbox", toolboxNode);
+            }
+
+            String outputString = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode);
+            return outputString;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return inputString;
         }
-        // 输出转换后的JSON字符串
-        return jsonObject.toString();
+    }
+    // 判断生成图表中是否有 toolbox 字段
+    private boolean addToolboxToSeries(JsonNode node) {
+        boolean toolboxExists = false;
+        if (node.isObject()) {
+            ObjectNode objectNode = (ObjectNode) node;
+            if (objectNode.has("toolbox")) {
+                toolboxExists = true;
+            }
+            if (objectNode.has("series")) {
+                for (JsonNode seriesNode : objectNode.get("series")) {
+                    if (seriesNode.isObject() && !((ObjectNode) seriesNode).has("toolbox")) {
+                        ObjectNode toolboxNode = ((ObjectNode) seriesNode).putObject("toolbox");
+                        ObjectNode featureNode = toolboxNode.putObject("feature");
+                        featureNode.putObject("saveAsImage");
+                    }
+                }
+            }
+            for (JsonNode childNode : objectNode) {
+                toolboxExists = addToolboxToSeries(childNode) || toolboxExists;
+            }
+        }
+        return toolboxExists;
     }
 }
