@@ -1,5 +1,8 @@
 package com.hjj.lingxibi.bizmq;
 
+import cn.hutool.json.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.constant.CommonConstant;
@@ -8,6 +11,7 @@ import com.hjj.lingxibi.manager.AIManager;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.service.ChartService;
 import com.rabbitmq.client.Channel;
+import jdk.nashorn.internal.ir.ObjectNode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -106,6 +110,8 @@ public class BIMessageConsumer {
             }
         }
         String genChart = splits[1].trim();
+        // 将生成的Echarts代码进行增强，拓展下载图表功能
+
         String genResult = splits[2].trim();
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chart.getId());
@@ -162,7 +168,7 @@ public class BIMessageConsumer {
         // 拼接分析目标
         String userGoal = goal;
         if (StringUtils.isNotBlank(chartType)) {
-            userGoal += ",请使用" + chartType;
+            userGoal += ",请务必使用" + chartType;
         }
         userInput.append(userGoal).append("\n");
         userInput.append("原始数据：").append("\n");
@@ -170,5 +176,20 @@ public class BIMessageConsumer {
 
         userInput.append(csvData).append("\n");
         return userInput.toString();
+    }
+
+    private String strengthenGenChart(String genChart) {
+        String inputJson = genChart;
+
+        JSONObject jsonObject = new JSONObject(inputJson);
+        JSONObject seriesArray = jsonObject.getJSONArray("series").getJSONObject(0); // 获取series数组的第一个元素
+
+        // 检查是否存在toolbox字段，如果不存在则添加
+        if (!jsonObject.containsKey("toolbox")) {
+            jsonObject.put("toolbox", new JSONObject().put("feature", new JSONObject().put("saveAsImage", new JSONObject())));
+            jsonObject.getJSONArray("series").put(seriesArray); // 将series数组的第一个元素移动到数组末尾，以便在其后添加toolbox
+        }
+        // 输出转换后的JSON字符串
+        return jsonObject.toString();
     }
 }

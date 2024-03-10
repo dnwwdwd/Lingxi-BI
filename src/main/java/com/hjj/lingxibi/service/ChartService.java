@@ -3,6 +3,7 @@ package com.hjj.lingxibi.service;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
+import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
 import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.vo.BIResponse;
@@ -26,4 +27,6 @@ public interface ChartService extends IService<Chart> {
     Long queryUserIdByChartId(Long id);
 
     BIResponse genChartByAIAsyncMq(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, HttpServletRequest request);
+
+    BIResponse regenChartByAsyncMq(ChartRegenRequest chartRegenRequest, HttpServletRequest request);
 }

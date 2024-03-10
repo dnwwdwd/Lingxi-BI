@@ -565,7 +565,11 @@ public class ChartController {
      * 修改图表重新生成
      */
     @PostMapping("/regen")
-    public BaseResponse<BIResponse> reGenChartByAsyncMq(@RequestBody Chart chart) {
-
+    public BaseResponse<BIResponse> reGenChartByAsyncMq(@RequestBody ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
+        if (chartRegenRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "图表不存在");
+        }
+        BIResponse biResponse = chartService.regenChartByAsyncMq(chartRegenRequest, request);
+        return ResultUtils.success(biResponse);
     }
 }
