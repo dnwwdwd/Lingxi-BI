@@ -2,6 +2,7 @@ package com.hjj.lingxibi.service.impl;
 
 import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.rholder.retry.RetryException;
 import com.github.rholder.retry.Retryer;
@@ -13,9 +14,7 @@ import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.exception.ThrowUtils;
 import com.hjj.lingxibi.manager.RedisLimiterManager;
 import com.hjj.lingxibi.mapper.ChartMapper;
-import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
-import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
-import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
+import com.hjj.lingxibi.model.dto.chart.*;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.BIResponse;
@@ -26,15 +25,31 @@ import com.hjj.lingxibi.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.search.BooleanQuery;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.sort.SortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 /**
 * @author 17653
@@ -60,6 +75,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Resource
     private Retryer<Boolean> retryer;
+
+    @Resource
+    private ElasticsearchRestTemplate elasticsearchRestTemplate;
     /**
      * 获取查询包装类
      *
@@ -268,6 +286,64 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "修改后的图表信息重试保存至数据库失败");
             }
         }
+    }
+
+    @Override
+    public Page<Chart> searchFromEs(ChartQueryRequestEs chartQueryRequestEs) {
+        String searchText = chartQueryRequestEs.getName();
+        long current = chartQueryRequestEs.getCurrent();
+        long pageSize = chartQueryRequestEs.getPageSize();
+        String sortField = chartQueryRequestEs.getSortField();
+        String sortOrder = chartQueryRequestEs.getSortOrder();
+        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
+        // 过滤
+        boolQueryBuilder.filter(QueryBuilders.termQuery("isDelete", 0));
+        // 按关键词检索
+        if (StringUtils.isNotBlank(searchText)) {
+            boolQueryBuilder.should(QueryBuilders.matchQuery("chartType", searchText));
+            boolQueryBuilder.should(QueryBuilders.matchQuery("name", searchText));
+            boolQueryBuilder.should(QueryBuilders.matchQuery("goal", searchText));
+            boolQueryBuilder.should(QueryBuilders.matchQuery("chartData", searchText));
+            boolQueryBuilder.minimumShouldMatch(1);
+        }
+        // 排序
+        SortBuilder<?> sortBuilder = SortBuilders.scoreSort();
+        if (StringUtils.isNotBlank(sortField)) {
+            sortBuilder = SortBuilders.fieldSort(sortField);
+            sortBuilder.order(CommonConstant.SORT_ORDER_ASC.equals(sortOrder) ? SortOrder.ASC : SortOrder.DESC);
+        }
+        // 分页
+        PageRequest pageRequest = PageRequest.of((int) current, (int) pageSize);
+        // 构造查找
+        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
+                .withPageable(pageRequest).withSorts(sortBuilder).build();
+        SearchHits<ChartEsDTO> searchHits =
+                elasticsearchRestTemplate.search(searchQuery, ChartEsDTO.class);
+        Page<Chart> page = new Page<>();
+        page.setTotal(searchHits.getTotalHits());
+        List<Chart> resourceList = new ArrayList<>();
+        // 查出结果后，从db中获取最新数据
+        if (searchHits.hasSearchHits()) {
+            List<SearchHit<ChartEsDTO>> searchHitList = searchHits.getSearchHits();
+            List<Long> chartIdList = searchHitList.stream().map(searchHit -> searchHit.getContent().getId())
+                    .collect(Collectors.toList());
+            // 从数据中去查询完整的数据
+            List<Chart> chartList = baseMapper.selectBatchIds(chartIdList);
+            if (!CollectionUtils.isEmpty(chartList)) {
+                Map<Long, List<Chart>> idChartMap =
+                        chartList.stream().collect(Collectors.groupingBy(Chart::getId));
+                chartIdList.forEach(chartId -> {
+                    if (idChartMap.containsKey(chartId)) {
+                        resourceList.add(idChartMap.get(chartId).get(0));
+                    } else {
+                        String delete = elasticsearchRestTemplate.delete(String.valueOf(chartId), ChartEsDTO.class);
+                        log.info("delete post {}", delete);
+                    }
+                });
+            }
+        }
+        page.setRecords(resourceList);
+        return page;
     }
 
     public void trySendMessageByMq(long chartId) {

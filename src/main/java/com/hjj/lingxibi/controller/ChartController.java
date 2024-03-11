@@ -572,4 +572,15 @@ public class ChartController {
         BIResponse biResponse = chartService.regenChartByAsyncMq(chartRegenRequest, request);
         return ResultUtils.success(biResponse);
     }
+
+    @PostMapping("/search/page")
+    public BaseResponse<Page<Chart>> searchChartByPageEs(@RequestBody ChartQueryRequestEs chartQueryRequestEs
+                                                         , HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        Page<Chart> chartPage = chartService.searchFromEs(chartQueryRequestEs);
+        return ResultUtils.success(chartPage);
+    }
 }
