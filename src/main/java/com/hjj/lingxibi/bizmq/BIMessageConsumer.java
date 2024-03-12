@@ -10,6 +10,7 @@ import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.manager.AIManager;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.service.ChartService;
+import com.hjj.lingxibi.utils.InvalidEchartsUtil;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -109,7 +110,21 @@ public class BIMessageConsumer {
             }
         }
         String genChart = splits[1].trim();
-        // 将生成的Echarts代码进行增强，拓展下载图表功能
+        // 检查生成的 Echarts 代码是否合法
+        boolean isValid = InvalidEchartsUtil.checkEchartsTest(genChart);
+        // 生成的 Echarts 代码不合法
+        if (!isValid) {
+            Chart invalidChart = new Chart();
+            invalidChart.setId(chartId);
+            invalidChart.setStatus("failed");
+            boolean invalidSaveResult = chartService.updateById(invalidChart);
+            if (invalidSaveResult) {
+                log.info("因为 AI 生成图表代码失败后更改图表状态为失败成功了");
+            } else {
+                log.info("因为 AI 生成图表代码失败后更改图表状态为失败失败了");
+            }
+        }
+        // 生成的 Echarts 代码合法则将生成的Echarts代码进行增强，拓展下载图表功能
         genChart = strengthenGenChart(genChart);
         String genResult = splits[2].trim();
         Chart updateChartResult = new Chart();
@@ -138,7 +153,6 @@ public class BIMessageConsumer {
             throw new RuntimeException(e);
         }
     }
-
 
     private void handlerChartUpdateError(long chartId, String execMessage) {
         Chart updateChartResult = new Chart();

@@ -146,6 +146,11 @@
             <artifactId>guava-retrying</artifactId>
             <version>1.0.6</version>
         </dependency>
+        <dependency>
+            <groupId>org.mozilla</groupId>
+            <artifactId>rhino</artifactId>
+            <version>1.7.13</version>
+        </dependency>
     </dependencies>
 
     <build>
