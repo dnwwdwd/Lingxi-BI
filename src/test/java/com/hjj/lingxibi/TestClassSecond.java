@@ -69,6 +69,7 @@ public class TestClassSecond {
             return false;
         }
 
+        System.out.println("success");
         return true;
 
     }
