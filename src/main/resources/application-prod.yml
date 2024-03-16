@@ -1,46 +1,64 @@
 server:
-  port: 8101
+  address: 0.0.0.0
+  port: 8081
+  servlet:
+    context-path: /api
+    # cookie 30 天过期
+    session:
+      cookie:
+        max-age: 2592000
+        domain: localhost
+        same-site: lax
+        secure: false
 spring:
+  application:
+    name: Lingxi-BI
   # 数据库配置
-  # todo 需替换配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/my_db
-    username: root
-    password: 123456
+    url: jdbc:mysql://47.116.208.231:3306/lingxibi
+    username: hejiajun
+    password: 13584064183cz
+  session:
+    store-type: redis
+    timeout: 2592000
   # Redis 配置
-  # todo 需替换配置
   redis:
-    database: 1
+    database: 0
     host: localhost
     port: 6379
     timeout: 5000
     password: 123456
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: root
+    password: 123456
+    publisher-confirm-type: correlated #开启发布确认模式为异步确认
+    publisher-returns: true
   # Elasticsearch 配置
-  # todo 需替换配置
   elasticsearch:
     uris: http://localhost:9200
     username: root
     password: 123456
-mybatis-plus:
-  configuration:
-    # 生产环境关闭日志
-    log-impl: ''
 # 接口文档的配置
 springdoc:
   group-configs:
     - group: 'default'
-      packages-to-scan: com.yupi.springbootinit.controller
-# knife4j的增强配置，不需要增强可以不配
-knife4j:
-  # 开启增强配置
-  enable: true
-  # 开启生产环境屏蔽
-  production: true
-  # 开启Swagger的Basic认证功能,默认是false
-  basic:
-    enable: true
-    # Basic认证用户名
-    username: root
-    # Basic认证密码
-    password: 123456
+      packages-to-scan: com.hjj.lingxibi.controller
+# MyBatis-Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# 鱼聪明AI配置
+yuapi:
+  client:
+    access-key: 0s7j671pjj814toikp1sq3cqq0s70hyf
+    secret-key: 2802yl68trq8ssddv5g8j5yrap0reglc
