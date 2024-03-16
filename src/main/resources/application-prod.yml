@@ -11,8 +11,6 @@ server:
         same-site: lax
         secure: false
 spring:
-  application:
-    name: Lingxi-BI
   # 数据库配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -28,7 +26,7 @@ spring:
     host: localhost
     port: 6379
     timeout: 5000
-    password: 123456
+    password: 13584064183cz
   rabbitmq:
     host: localhost
     port: 5672
@@ -41,6 +39,8 @@ spring:
     uris: http://localhost:9200
     username: root
     password: 123456
+  application:
+    name: Lingxi-BI
 # 接口文档的配置
 springdoc:
   group-configs:
