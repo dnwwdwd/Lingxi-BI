@@ -27,7 +27,7 @@ spring:
     port: 6379
     password: 密码
   rabbitmq:
-    host: 47.116.208.231
+    host: localhost
     port: 5672
     username: 账号
     password: 密码
