@@ -1,0 +1,63 @@
+server:
+  address: 0.0.0.0
+  port: 8081
+  servlet:
+    context-path: /api
+    # cookie 30 天过期
+    session:
+      cookie:
+        max-age: 2592000
+        domain: hejiajun.icu
+        same-site: lax
+        secure: false
+spring:
+  # 数据库配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://47.116.208.231/lingxibi
+    username: hejiajun
+    password: 13584064183cz
+  session:
+    store-type: redis
+    timeout: 2592000
+  # Redis 配置
+  redis:
+    database: 0
+    host: 47.116.208.231
+    port: 6379
+    password: 13584064183cz
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: 123456
+    publisher-confirm-type: correlated #开启发布确认模式为异步确认
+    publisher-returns: true
+  # Elasticsearch 配置
+  elasticsearch:
+    uris: http://localhost:9200
+    username: root
+    password: 123456
+  application:
+    name: Lingxi-BI
+# 接口文档的配置
+springdoc:
+  group-configs:
+    - group: 'default'
+      packages-to-scan: com.hjj.lingxibi.controller
+# MyBatis-Plus配置
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDelete
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# 鱼聪明AI配置
+yuapi:
+  client:
+    access-key: wjwo618sh90dz09xcu2r5qr1odc7gm3q
+    secret-key: yxx9msrc1v24w84un4z6eivhovcg9jiu
