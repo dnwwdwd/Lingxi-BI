@@ -417,7 +417,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         }
 
         String genChart = splits[1];
-        genChart.replace("\'", "\"");
+        genChart = genChart.replace("'", "\"");
         // 检验生成的 Echarts 代码是否合法（有错误）
         boolean isValid = InvalidEchartsUtil.checkEchartsTest(genChart);
         // 生成的 Echarts 代码不合法，因为是同步的数据库无数据所以是保存而不是更新

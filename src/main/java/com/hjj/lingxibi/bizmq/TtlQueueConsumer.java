@@ -28,16 +28,19 @@ public class TtlQueueConsumer {
     public void doTTLMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         if (StringUtils.isEmpty(message)) {
             log.error("死信队列收到的消息为空");
+            channel.basicAck(deliveryTag, false);
+            return;
         }
         log.info("已经接受到死信消息：{}", message);
         long chartId = Long.parseLong(message);
-        if (chartId >= 0) {
+        Chart chart = chartService.getById(chartId);
+        if (chartId > 0 && chart != null) {
             biMessageProducer.sendMessage(message);
         } else {
-            Chart chart = new Chart();
-            chart.setStatus("failed");
-            chart.setId(chartId);
-            chartService.updateById(chart);
+            Chart failedChart = new Chart();
+            failedChart.setStatus("failed");
+            failedChart.setId(chartId);
+            chartService.updateById(failedChart);
         }
         channel.basicAck(deliveryTag, false);
     }

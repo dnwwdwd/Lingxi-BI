@@ -52,7 +52,7 @@ public class BIMessageConsumer {
             try {
                 channel.basicNack(deliveryTag, false, false);
             } catch (IOException e) {
-                log.info("消息应答失败：", e);
+                log.info("消息拒绝失败：", e);
                 throw new RuntimeException(e);
             }
             log.info("消息为空拒绝接收");
@@ -65,7 +65,7 @@ public class BIMessageConsumer {
             try {
                 channel.basicNack(deliveryTag, false, false);
             } catch (IOException e) {
-                log.info("消息应答失败：", e);
+                log.info("消息拒绝失败：", e);
                 throw new RuntimeException(e);
             }
             log.info("图表为空拒绝接收");
@@ -81,7 +81,7 @@ public class BIMessageConsumer {
             try {
                 channel.basicNack(deliveryTag, false, false);
             } catch (IOException e) {
-                log.info("消息应答失败：", e);
+                log.info("消息拒绝失败：", e);
                 throw new RuntimeException(e);
             }
             handlerChartUpdateError(chart.getId(), "更新图表执行状态失败");
@@ -108,7 +108,7 @@ public class BIMessageConsumer {
             }
         }
         String genChart = splits[1].trim();
-        genChart.replace("'", "\"");
+        genChart = genChart.replace("'", "\"");
         // 检查生成的 Echarts 代码是否合法
         boolean isValid = InvalidEchartsUtil.checkEchartsTest(genChart);
         // 生成的 Echarts 代码不合法
@@ -136,10 +136,11 @@ public class BIMessageConsumer {
             try {
                 channel.basicNack(deliveryTag, false, false);
             } catch (IOException e) {
-                log.info("消息应答失败：", e);
+                log.info("消息拒绝失败：", e);
                 throw new RuntimeException(e);
             }
             handlerChartUpdateError(chart.getId(), "更新图表成功状态失败");
+            return;
         }
         // Long userId = chartService.queryUserIdByChartId(chartId);
         // String myChartId = String.format("lingxibi:chart:list:%s", userId);
