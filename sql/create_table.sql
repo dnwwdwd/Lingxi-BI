@@ -9,19 +9,22 @@ create table lingxibi.user
 (
     id           bigint auto_increment comment 'id'
         primary key,
-    userAccount  varchar(256)                                                               not null comment '账号',
-    userPassword varchar(512)                                                               not null comment '密码',
-    userName     varchar(256)                                                               null comment '用户昵称',
-    userAvatar   varchar(1024) default 'https://p.qqan.com/up/2021-1/16101620383324674.jpg' null comment '用户头像',
-    userRole     varchar(256)  default 'user'                                               not null comment '用户角色：user/admin/ban',
-    createTime   datetime      default CURRENT_TIMESTAMP                                    not null comment '创建时间',
-    updateTime   datetime      default CURRENT_TIMESTAMP                                    not null on update CURRENT_TIMESTAMP comment '更新时间',
-    isDelete     tinyint       default 0                                                    not null comment '是否删除'
+    userAccount  varchar(256)                                                                                                           not null comment '账号',
+    userPassword varchar(512)                                                                                                           not null comment '密码',
+    userName     varchar(256)                                                                                                           null comment '用户昵称',
+    userAvatar   varchar(1024) default 'https://th.bing.com/th/id/R.54a295a86f04aaf12f1285d4e00fd6be?rik=QAdEADu3LNh9Hg&pid=ImgRaw&r=0' null comment '用户头像',
+    userRole     varchar(256)  default 'user'                                                                                           not null comment '用户角色：user/admin/ban',
+    score        int           default 0                                                                                                not null comment '积分',
+    createTime   datetime      default CURRENT_TIMESTAMP                                                                                not null comment '创建时间',
+    updateTime   datetime      default CURRENT_TIMESTAMP                                                                                not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete     tinyint       default 0                                                                                                not null comment '是否删除'
 )
     comment '用户' collate = utf8mb4_unicode_ci;
 
 create index idx_userAccount
     on lingxibi.user (userAccount);
+
+
 
 
 -- 图表信息表

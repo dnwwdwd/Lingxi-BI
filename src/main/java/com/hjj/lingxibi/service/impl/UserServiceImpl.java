@@ -4,16 +4,9 @@ package com.hjj.lingxibi.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
-
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.constant.RedisConstant;
-import com.hjj.lingxibi.constant.UserConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.mapper.UserMapper;
 import com.hjj.lingxibi.model.dto.user.UserQueryRequest;
@@ -23,7 +16,6 @@ import com.hjj.lingxibi.model.vo.LoginUserVO;
 import com.hjj.lingxibi.model.vo.UserVO;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.SqlUtils;
-import com.sun.org.apache.xerces.internal.impl.dv.xs.AnyURIDV;
 import lombok.extern.slf4j.Slf4j;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 import org.apache.commons.lang3.StringUtils;
@@ -31,6 +23,12 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.hjj.lingxibi.constant.UserConstant.USER_LOGIN_STATE;
 import static com.hjj.lingxibi.constant.UserConstant.USER_SIGN_IN;

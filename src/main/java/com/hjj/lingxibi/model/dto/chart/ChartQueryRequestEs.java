@@ -10,6 +10,7 @@ import java.io.Serializable;
  */
 @Data
 public class ChartQueryRequestEs extends PageRequest implements Serializable {
+
     // 搜索关键词
     private String name;
 

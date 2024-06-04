@@ -60,4 +60,9 @@ public interface ChartService extends IService<Chart> {
      * @return
      */
     BIResponse genChartByAI(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, HttpServletRequest request);
+
+    /**
+     * 按关键词搜索我的图表（MySQL 实现）
+     */
+    Page<Chart> searchMyCharts(ChartQueryRequest chartQueryRequest);
 }

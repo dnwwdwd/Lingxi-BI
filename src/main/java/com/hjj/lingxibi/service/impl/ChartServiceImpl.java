@@ -55,14 +55,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 /**
-* @author 17653
-* @description 针对表【chart(图表信息表)】的数据库操作Service实现
-* @createDate 2024-01-25 19:35:15
-*/
+ * @author 17653
+ * @description 针对表【chart(图表信息表)】的数据库操作Service实现
+ * @createDate 2024-01-25 19:35:15
+ */
 @Service
 @Slf4j
 public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
-    implements ChartService{
+        implements ChartService {
 
     @Resource
     private UserService userService;
@@ -84,6 +84,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Resource
     private ElasticsearchRestTemplate elasticsearchRestTemplate;
+
     /**
      * 获取查询包装类
      *
@@ -106,9 +107,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String sortOrder = chartQueryRequest.getSortOrder();
 
         // 根据查询条件查询
-        queryWrapper.eq( id != null && id > 0, "id", id);
+        queryWrapper.eq(id != null && id > 0, "id", id);
         queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
-        queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
         queryWrapper.eq(StringUtils.isNotBlank(goal), "goal", goal);
         queryWrapper.eq(StringUtils.isNotBlank(chartType), "chartType", chartType);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
@@ -120,11 +120,11 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public Long queryUserIdByChartId(Long id) {
-        if(id == null || id <= 0) {
+        if (id == null || id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Long userId = chartMapper.queryUserIdByChartId(id);
-        if(userId == null || userId <= 0) {
+        if (userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR);
         }
         return userId;
@@ -411,7 +411,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             try {
                 retryer.call(() -> true);
                 genChartByAI(multipartFile, genChartByAIRequest, request);
-            } catch (Exception e){
+            } catch (Exception e) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI生成错误");
             }
         }
@@ -469,6 +469,21 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         biResponse.setGenChart(genChart);
         biResponse.setGenResult(genResult);
         return biResponse;
+    }
+
+    @Override
+    public Page<Chart> searchMyCharts(ChartQueryRequest chartQueryRequest) {
+        String name = chartQueryRequest.getName();
+        long current = chartQueryRequest.getCurrent();
+        long pageSize = chartQueryRequest.getPageSize();
+        String sortField = chartQueryRequest.getSortField();
+        String sortOrder = chartQueryRequest.getSortOrder();
+        QueryWrapper<Chart> queryWrapper = new QueryWrapper<>();
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
+                sortField);
+        queryWrapper.and(qw -> qw.like(StringUtils.isNotBlank(name), "name", name).or().like(StringUtils.isNotBlank(name), "chartType", name));
+        Page<Chart> page = this.page(new Page<>(current, pageSize), queryWrapper);
+        return page;
     }
 
 

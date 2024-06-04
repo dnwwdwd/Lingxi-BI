@@ -507,4 +507,18 @@ public class ChartController {
         Page<Chart> chartPage = chartService.searchFromEs(chartQueryRequestEs);
         return ResultUtils.success(chartPage);
     }
+
+    /**
+     * 按关键词搜索我的图表（MySQL 实现）
+     */
+    @PostMapping("/my/search/page")
+    public BaseResponse<Page<Chart>> searchMyChart(@RequestBody ChartQueryRequest chartQueryRequest,
+                                                   HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        Page<Chart> page = chartService.searchMyCharts(chartQueryRequest);
+        return ResultUtils.success(page);
+    }
 }
