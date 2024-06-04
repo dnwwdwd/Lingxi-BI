@@ -13,8 +13,8 @@ import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.constant.RedisConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.exception.ThrowUtils;
-import com.hjj.lingxibi.manager.AIManager;
 import com.hjj.lingxibi.manager.RedisLimiterManager;
+import com.hjj.lingxibi.manager.ZhiPuAIManager;
 import com.hjj.lingxibi.mapper.ChartMapper;
 import com.hjj.lingxibi.model.dto.chart.*;
 import com.hjj.lingxibi.model.entity.Chart;
@@ -25,10 +25,11 @@ import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.ExcelUtils;
 import com.hjj.lingxibi.utils.InvalidEchartsUtil;
 import com.hjj.lingxibi.utils.SqlUtils;
+import com.zhipu.oapi.service.v4.model.ChatMessage;
+import com.zhipu.oapi.service.v4.model.ChatMessageRole;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.lucene.search.BooleanQuery;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilder;
@@ -71,9 +72,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     private ChartMapper chartMapper;
 
     @Resource
-    private AIManager aiManager;
-
-    @Resource
     private RedisLimiterManager redisLimiterManager;
 
     @Resource
@@ -85,6 +83,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     @Resource
     private ElasticsearchRestTemplate elasticsearchRestTemplate;
 
+
+    @Resource
+    private ZhiPuAIManager zhiPuAIManager;
     /**
      * 获取查询包装类
      *
@@ -155,19 +156,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         Long userId = loginUser.getId();
         // 限流判断
         redisLimiterManager.doRateLimit(RedisConstant.REDIS_LIMITER_ID + userId);
-
-        // 无需写prompt，直接调用现有模型
-/*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
-                "分析需求：\n" +
-                "{数据分析的需求和目标}\n" +
-                "原始数据:\n" +
-                "{csv格式的原始数据，用,作为分隔符}\n" +
-                "请根据这两部分内容，按照以下格式生成内容（此外不要输出任何多余的开头、结尾、注释）\n" +
-                "\n" +
-                "【【【【【【\n" +
-                "{前端Echarts V5 的 option 配置对象js代码，合理地将数据进行可视化}\n" +
-                "【【【【【【\n" +
-                "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*/
 
         long modelId = CommonConstant.BI_MODEL_ID;
         // 压缩后的数据
@@ -395,16 +383,19 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         // 拼接分析目标
         String userGoal = goal;
         if (StringUtils.isNotBlank(chartType)) {
-            userGoal += ",请使用" + chartType;
+            userGoal += ",请注意图表类型为" + chartType;
         }
         userInput.append(userGoal).append("\n");
         userInput.append("原始数据：").append("\n");
         // 压缩后的数据
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
-
-        String result = aiManager.doChat(modelId, userInput.toString());
-        String[] splits = result.split("【【【【【");
+        System.out.println(userInput);
+//        String result = aiManager.doChat(modelId, userInput.toString());
+        ChatMessage chatMessage = new ChatMessage(ChatMessageRole.USER.value(), userInput.toString());
+        String result = zhiPuAIManager.doChat(chatMessage);
+        System.out.println("智谱 AI 生成结果:" + result);
+        String[] splits = result.split("【【【【【【");
 
 
         if (splits.length < 3) {

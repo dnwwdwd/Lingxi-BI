@@ -6,15 +6,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.common.ErrorCode;
-import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.exception.BusinessException;
-import com.hjj.lingxibi.manager.AIManager;
+import com.hjj.lingxibi.manager.ZhiPuAIManager;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.InvalidEchartsUtil;
 import com.rabbitmq.client.Channel;
+import com.zhipu.oapi.service.v4.model.ChatMessage;
+import com.zhipu.oapi.service.v4.model.ChatMessageRole;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -32,9 +33,6 @@ public class BIMessageConsumer {
     private ChartService chartService;
 
     @Resource
-    private AIManager aiManager;
-
-    @Resource
     private UserService userService;
 
     @Resource
@@ -42,6 +40,9 @@ public class BIMessageConsumer {
 
     @Resource
     private BIMessageProducer biMessageProducer;
+
+    @Resource
+    private ZhiPuAIManager zhiPuAIManager;
 
     // 制定消费者监听哪个队列和消息确认机制
     @RabbitListener(queues = {"bi_common_queue"}, ackMode = "MANUAL")
@@ -87,14 +88,16 @@ public class BIMessageConsumer {
             handlerChartUpdateError(chart.getId(), "更新图表执行状态失败");
             return;
         }
-        // 调用AI
-        String result = aiManager.doChat(CommonConstant.BI_MODEL_ID, buildUserInput(chart));
-        String[] splits = result.split("【【【【【");
-        if (splits.length < 3) {
+        // 调用智谱 AI
+        ChatMessage chatMessage = new ChatMessage(ChatMessageRole.USER.value(), buildUserInput(chart));
+        String result = zhiPuAIManager.doChat(chatMessage);
+        final String[][] splits = {result.split("【【【【【【")};
+        if (splits[0].length < 3) {
             try {
-                retryer.call(() -> true);
-                biMessageProducer.sendMessage(String.valueOf(chartId));
-                return;
+                retryer.call(() -> {
+                    splits[0] = zhiPuAIManager.doChat(chatMessage).split("【【【【【【");
+                    return splits[0].length < 3;
+                });
             } catch (Exception e) {
                 log.error("调用 AI 接口失败—————重试异常：", e);
                 Chart failedChart = new Chart();
@@ -107,7 +110,7 @@ public class BIMessageConsumer {
                 throw new RuntimeException("由于AI接口生成结果错误的重试失败了");
             }
         }
-        String genChart = splits[1].trim();
+        String genChart = splits[0][1].trim();
         genChart = genChart.replace("'", "\"");
         // 检查生成的 Echarts 代码是否合法
         boolean isValid = InvalidEchartsUtil.checkEchartsTest(genChart);
@@ -125,7 +128,7 @@ public class BIMessageConsumer {
         }
         // 生成的 Echarts 代码合法则将生成的Echarts代码进行增强，拓展下载图表功能
         genChart = strengthenGenChart(genChart);
-        String genResult = splits[2].trim();
+        String genResult = splits[0][2].trim();
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chart.getId());
         updateChartResult.setGenChart(genChart);
@@ -142,8 +145,6 @@ public class BIMessageConsumer {
             handlerChartUpdateError(chart.getId(), "更新图表成功状态失败");
             return;
         }
-        // Long userId = chartService.queryUserIdByChartId(chartId);
-        // String myChartId = String.format("lingxibi:chart:list:%s", userId);
 
         Long userId = chart.getUserId();
 
@@ -193,7 +194,7 @@ public class BIMessageConsumer {
         // 拼接分析目标
         String userGoal = goal;
         if (StringUtils.isNotBlank(chartType)) {
-            userGoal += ",请务必使用" + chartType;
+            userGoal += ",请注意图表类型必须是" + chartType;
         }
         userInput.append(userGoal).append("\n");
         userInput.append("原始数据：").append("\n");
@@ -225,6 +226,7 @@ public class BIMessageConsumer {
             return inputString;
         }
     }
+
     // 判断生成图表中是否有 toolbox 字段
     private boolean addToolboxToSeries(JsonNode node) {
         boolean toolboxExists = false;
