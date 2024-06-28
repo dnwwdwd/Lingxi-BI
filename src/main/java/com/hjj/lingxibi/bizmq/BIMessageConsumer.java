@@ -90,7 +90,27 @@ public class BIMessageConsumer {
         }
         // 调用智谱 AI
         ChatMessage chatMessage = new ChatMessage(ChatMessageRole.USER.value(), buildUserInput(chart));
-        String result = zhiPuAIManager.doChat(chatMessage);
+        String result = null;
+        try {
+            result = zhiPuAIManager.doChat(chatMessage);
+        } catch (Exception e) {
+            Chart failedChartByAI = new Chart();
+            failedChartByAI.setId(chartId);
+            failedChartByAI.setStatus("failed");
+            boolean update = chartService.updateById(failedChartByAI);
+            if (update) {
+                log.info("因为 AI 生成对话失败而导致的图表状态更改为失败成功了，图表{}", chartId);
+            } else {
+                log.error("因为 AI 生成对话失败而导致的图表状态更改为失败失败了，图表{}", chartId);
+            }
+            try {
+                channel.basicAck(deliveryTag, false);
+            } catch (IOException ex) {
+                log.error("因为 AI 生成对话失败而导致的图表消息 Id 的 MQ 确认应答失败");
+                throw new RuntimeException(ex);
+            }
+            log.error(e.getMessage() + "图表 {} AI 生成对话失败", chartId);
+        }
         final String[][] splits = {result.split("【【【【【【")};
         if (splits[0].length < 3) {
             try {
@@ -106,6 +126,12 @@ public class BIMessageConsumer {
                 boolean statusSaveResult = chartService.updateById(failedChart);
                 if (!statusSaveResult) {
                     throw new RuntimeException("更新图表状态为失败失败了");
+                }
+                try {
+                    channel.basicAck(deliveryTag, false);
+                } catch (IOException ex) {
+                    log.error("因为 AI 生成对话失败而导致的图表消息 Id 的 MQ 确认应答失败");
+                    throw new RuntimeException(ex);
                 }
                 throw new RuntimeException("由于AI接口生成结果错误的重试失败了");
             }
