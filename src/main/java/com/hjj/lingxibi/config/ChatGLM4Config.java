@@ -7,8 +7,10 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class ChatGLM4Config {
+
     @Bean
     public ClientV4 clientV4() {
         return new ClientV4.Builder(ZhiPuAIConstant.ZHIPU_AI_API_KEY).build();
     }
+
 }

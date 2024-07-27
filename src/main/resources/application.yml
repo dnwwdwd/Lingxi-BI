@@ -35,10 +35,10 @@ spring:
     publisher-returns: true
   # Elasticsearch 配置
   # todo 需替换配置，然后取消注释
-  elasticsearch:
-    uris: http://localhost:9200
-    username: root
-    password: 123456
+#  elasticsearch:
+#    uris: http://localhost:9200
+#    username: root
+#    password: 123456
   # 文件上传
   servlet:
     multipart:
@@ -103,8 +103,3 @@ springdoc:
 # knife4j的增强配置，不需要增强可以不配
 knife4j:
   enable: true
-# 鱼聪明AI配置
-yuapi:
-  client:
-    access-key: wjwo618sh90dz09xcu2r5qr1odc7gm3q
-    secret-key: yxx9msrc1v24w84un4z6eivhovcg9jiu
