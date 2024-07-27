@@ -18,7 +18,6 @@ import javax.annotation.Resource;
 import java.util.concurrent.TimeUnit;
 
 @SpringBootTest
-        (classes = TestClassSecond.class)
 public class TestClassSecond {
 
     @Resource
@@ -53,26 +52,22 @@ public class TestClassSecond {
 
         try {
             // 重试器调用
-            retryer.call(()-> testClassSecond.func(params));
-        } catch (Exception e){
+            retryer.call(() -> testClassSecond.func(params));
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     /**
      * 重试的目标函数
+     *
      * @param url
      * @return
      */
     private Boolean func(String url) {
         RestTemplate restTemplate = new RestTemplate();
-
-        log.info("#INFO 事件调用 begin");
-
         String result = restTemplate.getForObject(url, String.class);
-        log.info(""+result);
-        log.info("#INFO 事件调用 end");
-
+        log.info("result：" + result);
         if (result.length() > 10000) {
             return false;
         }

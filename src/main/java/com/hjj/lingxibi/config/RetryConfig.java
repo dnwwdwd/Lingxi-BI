@@ -14,7 +14,7 @@ public class RetryConfig {
     public Retryer<Boolean> retryer() {
         return RetryerBuilder.<Boolean>newBuilder()
                 .retryIfExceptionOfType(Exception.class) // 设置出现 Exception 异常就重试
-                .retryIfResult(Predicates.equalTo(false)) // 设置结果为 false 重试
+                .retryIfResult(Predicates.equalTo(false)) // 设置结果为 false 才重试
                 .withWaitStrategy(WaitStrategies.fixedWait(1, TimeUnit.SECONDS)) // 设置每次重试间隔为 2s
                 .withStopStrategy(StopStrategies.stopAfterAttempt(2)) // 设置重试次数为 2 次，超过 2 次就停止
                 .withAttemptTimeLimiter(AttemptTimeLimiters.fixedTimeLimit(3, TimeUnit.SECONDS)) // 设置每次重试的时间限制为 3s
