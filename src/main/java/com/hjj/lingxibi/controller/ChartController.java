@@ -25,7 +25,6 @@ import javax.servlet.http.HttpServletRequest;
 
 /**
  * 图表接口
- *
  */
 @RestController
 @RequestMapping("/chart")
