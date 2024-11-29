@@ -23,7 +23,7 @@ import com.hjj.lingxibi.model.vo.BIResponse;
 import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.ExcelUtils;
-import com.hjj.lingxibi.utils.InvalidEchartsUtil;
+import com.hjj.lingxibi.utils.ChartUtil;
 import com.hjj.lingxibi.utils.SqlUtils;
 import com.zhipu.oapi.service.v4.model.ChatMessage;
 import com.zhipu.oapi.service.v4.model.ChatMessageRole;
@@ -56,7 +56,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 /**
- * @author 17653
+ * @author hejiajun
  * @description 针对表【chart(图表信息表)】的数据库操作Service实现
  * @createDate 2024-01-25 19:35:15
  */
@@ -410,7 +410,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String genChart = splits[1];
         genChart = genChart.replace("'", "\"");
         // 检验生成的 Echarts 代码是否合法（有错误）
-        boolean isValid = InvalidEchartsUtil.checkEchartsTest(genChart);
+        boolean isValid = ChartUtil.checkEchartsTest(genChart);
         // 生成的 Echarts 代码不合法，因为是同步的数据库无数据所以是保存而不是更新
         if (!isValid) {
             Chart invalidChart = new Chart();

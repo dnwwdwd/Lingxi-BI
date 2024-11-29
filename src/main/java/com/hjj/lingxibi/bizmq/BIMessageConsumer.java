@@ -1,9 +1,6 @@
 package com.hjj.lingxibi.bizmq;
 
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.exception.BusinessException;
@@ -12,7 +9,7 @@ import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.UserService;
-import com.hjj.lingxibi.utils.InvalidEchartsUtil;
+import com.hjj.lingxibi.utils.ChartUtil;
 import com.rabbitmq.client.Channel;
 import com.zhipu.oapi.service.v4.model.ChatMessage;
 import com.zhipu.oapi.service.v4.model.ChatMessageRole;
@@ -25,6 +22,8 @@ import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
 import java.io.IOException;
+
+import static com.hjj.lingxibi.utils.ChartUtil.*;
 
 @Component
 @Slf4j
@@ -48,7 +47,7 @@ public class BIMessageConsumer {
     @RabbitListener(queues = {"bi_common_queue"}, ackMode = "MANUAL")
     public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         log.info("receiveMessage is {}", message);
-        if(StringUtils.isBlank(message)) {
+        if (StringUtils.isBlank(message)) {
             // 如果失败，消息拒绝
             try {
                 channel.basicNack(deliveryTag, false, false);
@@ -112,34 +111,10 @@ public class BIMessageConsumer {
             log.error(e.getMessage() + "图表 {} AI 生成对话失败", chartId);
         }
         final String[][] splits = {result.split("【【【【【【")};
-        if (splits[0].length < 3) {
-            try {
-                retryer.call(() -> {
-                    splits[0] = zhiPuAIManager.doChat(chatMessage).split("【【【【【【");
-                    return splits[0].length < 3;
-                });
-            } catch (Exception e) {
-                log.error("调用 AI 接口失败—————重试异常：", e);
-                Chart failedChart = new Chart();
-                failedChart.setId(chart.getId());
-                failedChart.setStatus("failed");
-                boolean statusSaveResult = chartService.updateById(failedChart);
-                if (!statusSaveResult) {
-                    throw new RuntimeException("更新图表状态为失败失败了");
-                }
-                try {
-                    channel.basicAck(deliveryTag, false);
-                } catch (IOException ex) {
-                    log.error("因为 AI 生成对话失败而导致的图表消息 Id 的 MQ 确认应答失败");
-                    throw new RuntimeException(ex);
-                }
-                throw new RuntimeException("由于AI接口生成结果错误的重试失败了");
-            }
-        }
         String genChart = splits[0][1].trim();
         genChart = genChart.replace("'", "\"");
         // 检查生成的 Echarts 代码是否合法
-        boolean isValid = InvalidEchartsUtil.checkEchartsTest(genChart);
+        boolean isValid = ChartUtil.checkEchartsTest(genChart);
         // 生成的 Echarts 代码不合法
         if (!isValid) {
             Chart invalidChart = new Chart();
@@ -193,7 +168,7 @@ public class BIMessageConsumer {
         }
     }
 
-    private void handlerChartUpdateError(long chartId, String execMessage) {
+    public void handlerChartUpdateError(long chartId, String execMessage) {
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chartId);
         updateChartResult.setStatus("failed");
@@ -204,76 +179,4 @@ public class BIMessageConsumer {
         }
     }
 
-    /**
-     * 构建用户输入
-     * @param chart
-     * @return
-     */
-    private String buildUserInput(Chart chart) {
-        String goal = chart.getGoal();
-        String chartType = chart.getChartType();
-        String csvData = chart.getChartData();
-
-        // 构造用户输入
-        StringBuilder userInput = new StringBuilder();
-        userInput.append("分析需求：").append("\n");
-        // 拼接分析目标
-        String userGoal = goal;
-        if (StringUtils.isNotBlank(chartType)) {
-            userGoal += ",请注意图表类型必须是" + chartType;
-        }
-        userInput.append(userGoal).append("\n");
-        userInput.append("原始数据：").append("\n");
-        // 压缩后的数据
-
-        userInput.append(csvData).append("\n");
-        return userInput.toString();
-    }
-
-    // 将生成的Echarts代码进行增强，拓展下载图表功能
-    private String strengthenGenChart(String inputString) {
-        ObjectMapper mapper = new ObjectMapper();
-        try {
-            JsonNode jsonNode = mapper.readTree(inputString);
-
-            boolean toolboxExists = addToolboxToSeries(jsonNode);
-
-            if (!toolboxExists) {
-                ObjectNode toolboxNode = mapper.createObjectNode();
-                ObjectNode featureNode = toolboxNode.putObject("feature");
-                featureNode.putObject("saveAsImage");
-                ((ObjectNode) jsonNode).set("toolbox", toolboxNode);
-            }
-
-            String outputString = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode);
-            return outputString;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return inputString;
-        }
-    }
-
-    // 判断生成图表中是否有 toolbox 字段
-    private boolean addToolboxToSeries(JsonNode node) {
-        boolean toolboxExists = false;
-        if (node.isObject()) {
-            ObjectNode objectNode = (ObjectNode) node;
-            if (objectNode.has("toolbox")) {
-                toolboxExists = true;
-            }
-            if (objectNode.has("series")) {
-                for (JsonNode seriesNode : objectNode.get("series")) {
-                    if (seriesNode.isObject() && !((ObjectNode) seriesNode).has("toolbox")) {
-                        ObjectNode toolboxNode = ((ObjectNode) seriesNode).putObject("toolbox");
-                        ObjectNode featureNode = toolboxNode.putObject("feature");
-                        featureNode.putObject("saveAsImage");
-                    }
-                }
-            }
-            for (JsonNode childNode : objectNode) {
-                toolboxExists = addToolboxToSeries(childNode) || toolboxExists;
-            }
-        }
-        return toolboxExists;
-    }
 }
