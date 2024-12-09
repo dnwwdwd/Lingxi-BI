@@ -1,10 +1,12 @@
 package com.hjj.lingxibi.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import lombok.Builder;
+import lombok.Data;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.Date;
-import lombok.Data;
 
 /**
  * 图表信息表
@@ -12,6 +14,7 @@ import lombok.Data;
  */
 @TableName(value ="chart")
 @Data
+@ToString
 public class Chart implements Serializable {
     /**
      * id

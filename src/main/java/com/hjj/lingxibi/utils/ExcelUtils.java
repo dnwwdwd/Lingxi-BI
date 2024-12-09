@@ -3,6 +3,8 @@ package com.hjj.lingxibi.utils;
 import cn.hutool.core.collection.CollUtil;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.support.ExcelTypeEnum;
+import com.hjj.lingxibi.common.ErrorCode;
+import com.hjj.lingxibi.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -38,9 +40,9 @@ public class ExcelUtils {
                     .sheet()
                     .headRowNumber(0)
                     .doReadSync();
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("表格处理错误", e);
-            throw new RuntimeException(e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "表格处理错误");
         }
         if (CollUtil.isEmpty(list)) {
             return "";

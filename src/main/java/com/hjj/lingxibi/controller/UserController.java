@@ -3,43 +3,32 @@ package com.hjj.lingxibi.controller;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hjj.lingxibi.annotation.AuthCheck;
-import com.hjj.lingxibi.constant.RedisConstant;
-import com.hjj.lingxibi.exception.ThrowUtils;
-import com.hjj.lingxibi.model.entity.User;
-import com.hjj.lingxibi.model.vo.LoginUserVO;
-import com.hjj.lingxibi.model.vo.UserVO;
 import com.hjj.lingxibi.common.BaseResponse;
 import com.hjj.lingxibi.common.DeleteRequest;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.common.ResultUtils;
-import com.hjj.lingxibi.config.WxOpenConfig;
+import com.hjj.lingxibi.constant.RedisConstant;
 import com.hjj.lingxibi.constant.UserConstant;
 import com.hjj.lingxibi.exception.BusinessException;
-import com.hjj.lingxibi.model.dto.user.UserAddRequest;
-import com.hjj.lingxibi.model.dto.user.UserLoginRequest;
-import com.hjj.lingxibi.model.dto.user.UserQueryRequest;
-import com.hjj.lingxibi.model.dto.user.UserRegisterRequest;
-import com.hjj.lingxibi.model.dto.user.UserUpdateMyRequest;
-import com.hjj.lingxibi.model.dto.user.UserUpdateRequest;
-
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import javax.annotation.Resource;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
+import com.hjj.lingxibi.exception.ThrowUtils;
+import com.hjj.lingxibi.model.dto.user.*;
+import com.hjj.lingxibi.model.entity.User;
+import com.hjj.lingxibi.model.vo.LoginUserVO;
+import com.hjj.lingxibi.model.vo.UserVO;
 import com.hjj.lingxibi.service.UserService;
 import lombok.extern.slf4j.Slf4j;
-import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
-import me.chanjar.weixin.common.bean.oauth2.WxOAuth2AccessToken;
-import me.chanjar.weixin.mp.api.WxMpService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static com.hjj.lingxibi.service.impl.UserServiceImpl.SALT;
 
@@ -54,9 +43,6 @@ public class UserController {
 
     @Resource
     private UserService userService;
-
-    @Resource
-    private WxOpenConfig wxOpenConfig;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -103,29 +89,6 @@ public class UserController {
         }
         LoginUserVO loginUserVO = userService.userLogin(userAccount, userPassword, request);
         return ResultUtils.success(loginUserVO);
-    }
-
-    /**
-     * 用户登录（微信开放平台）
-     */
-    @GetMapping("/login/wx_open")
-    public BaseResponse<LoginUserVO> userLoginByWxOpen(HttpServletRequest request, HttpServletResponse response,
-            @RequestParam("code") String code) {
-        WxOAuth2AccessToken accessToken;
-        try {
-            WxMpService wxService = wxOpenConfig.getWxMpService();
-            accessToken = wxService.getOAuth2Service().getAccessToken(code);
-            WxOAuth2UserInfo userInfo = wxService.getOAuth2Service().getUserInfo(accessToken, code);
-            String unionId = userInfo.getUnionId();
-            String mpOpenId = userInfo.getOpenid();
-            if (StringUtils.isAnyBlank(unionId, mpOpenId)) {
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "登录失败，系统错误");
-            }
-            return ResultUtils.success(userService.userLoginByMpOpen(userInfo, request));
-        } catch (Exception e) {
-            log.error("userLoginByWxOpen error", e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "登录失败，系统错误");
-        }
     }
 
     /**

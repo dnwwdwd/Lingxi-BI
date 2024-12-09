@@ -16,44 +16,33 @@ import com.hjj.lingxibi.exception.ThrowUtils;
 import com.hjj.lingxibi.manager.RedisLimiterManager;
 import com.hjj.lingxibi.manager.ZhiPuAIManager;
 import com.hjj.lingxibi.mapper.ChartMapper;
-import com.hjj.lingxibi.model.dto.chart.*;
+import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
+import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
+import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.BIResponse;
 import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.UserService;
-import com.hjj.lingxibi.utils.ExcelUtils;
+import com.hjj.lingxibi.utils.AIUtil;
 import com.hjj.lingxibi.utils.ChartUtil;
+import com.hjj.lingxibi.utils.ExcelUtils;
 import com.hjj.lingxibi.utils.SqlUtils;
 import com.zhipu.oapi.service.v4.model.ChatMessage;
 import com.zhipu.oapi.service.v4.model.ChatMessageRole;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.search.sort.SortBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
 import org.springframework.beans.BeanUtils;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 
 /**
  * @author hejiajun
@@ -86,6 +75,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Resource
     private ZhiPuAIManager zhiPuAIManager;
+
     /**
      * 获取查询包装类
      *
@@ -284,64 +274,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     @Override
-    public Page<Chart> searchFromEs(ChartQueryRequestEs chartQueryRequestEs) {
-        String searchText = chartQueryRequestEs.getName();
-        long current = chartQueryRequestEs.getCurrent();
-        long pageSize = chartQueryRequestEs.getPageSize();
-        String sortField = chartQueryRequestEs.getSortField();
-        String sortOrder = chartQueryRequestEs.getSortOrder();
-        BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
-        // 过滤
-        boolQueryBuilder.filter(QueryBuilders.termQuery("isDelete", 0));
-        // 按关键词检索
-        if (StringUtils.isNotBlank(searchText)) {
-            boolQueryBuilder.should(QueryBuilders.matchQuery("chartType", searchText));
-            boolQueryBuilder.should(QueryBuilders.matchQuery("name", searchText));
-            boolQueryBuilder.should(QueryBuilders.matchQuery("goal", searchText));
-            boolQueryBuilder.should(QueryBuilders.matchQuery("chartData", searchText));
-            boolQueryBuilder.minimumShouldMatch(1);
-        }
-        // 排序
-        SortBuilder<?> sortBuilder = SortBuilders.scoreSort();
-        if (StringUtils.isNotBlank(sortField)) {
-            sortBuilder = SortBuilders.fieldSort(sortField);
-            sortBuilder.order(CommonConstant.SORT_ORDER_ASC.equals(sortOrder) ? SortOrder.ASC : SortOrder.DESC);
-        }
-        // 分页
-        PageRequest pageRequest = PageRequest.of((int) current, (int) pageSize);
-        // 构造查找
-        NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(boolQueryBuilder)
-                .withPageable(pageRequest).withSorts(sortBuilder).build();
-        SearchHits<ChartEsDTO> searchHits =
-                elasticsearchRestTemplate.search(searchQuery, ChartEsDTO.class);
-        Page<Chart> page = new Page<>();
-        page.setTotal(searchHits.getTotalHits());
-        List<Chart> resourceList = new ArrayList<>();
-        // 查出结果后，从db中获取最新数据
-        if (searchHits.hasSearchHits()) {
-            List<SearchHit<ChartEsDTO>> searchHitList = searchHits.getSearchHits();
-            List<Long> chartIdList = searchHitList.stream().map(searchHit -> searchHit.getContent().getId())
-                    .collect(Collectors.toList());
-            // 从数据中去查询完整的数据
-            List<Chart> chartList = baseMapper.selectBatchIds(chartIdList);
-            if (!CollectionUtils.isEmpty(chartList)) {
-                Map<Long, List<Chart>> idChartMap =
-                        chartList.stream().collect(Collectors.groupingBy(Chart::getId));
-                chartIdList.forEach(chartId -> {
-                    if (idChartMap.containsKey(chartId)) {
-                        resourceList.add(idChartMap.get(chartId).get(0));
-                    } else {
-                        String delete = elasticsearchRestTemplate.delete(String.valueOf(chartId), ChartEsDTO.class);
-                        log.info("delete post {}", delete);
-                    }
-                });
-            }
-        }
-        page.setRecords(resourceList);
-        return page;
-    }
-
-    @Override
     public BIResponse genChartByAI(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
         String name = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
@@ -362,7 +294,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "非法文件后缀");
 
         User loginUser = userService.getLoginUser(request);
-        Long id = loginUser.getId();
+        Long userId = loginUser.getId();
         // 无需写prompt，直接调用现有模型
 /*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
                 "分析需求：\n" +
@@ -375,7 +307,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
                 "{前端Echarts V5 的 option 配置对象js代码，合理地将数据进行可视化}\n" +
                 "【【【【【【\n" +
                 "{ 明确的数据分析结论、越详细越好，不要生成多余的注释 }";*/
-        long modelId = CommonConstant.BI_MODEL_ID;
 
         // 构造用户输入
         StringBuilder userInput = new StringBuilder();
@@ -391,43 +322,26 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
         System.out.println(userInput);
-//        String result = aiManager.doChat(modelId, userInput.toString());
-        ChatMessage chatMessage = new ChatMessage(ChatMessageRole.USER.value(), userInput.toString());
-        String result = zhiPuAIManager.doChat(chatMessage);
-        System.out.println("智谱 AI 生成结果:" + result);
-        String[] splits = result.split("【【【【【【");
-
-
-        if (splits.length < 3) {
-            try {
-                retryer.call(() -> true);
-                genChartByAI(multipartFile, genChartByAIRequest, request);
-            } catch (Exception e) {
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI生成错误");
-            }
+        String response = null;
+        try {
+            response = zhiPuAIManager.doChat(new ChatMessage(ChatMessageRole.USER.value(), userInput.toString()));
+        } catch (Exception e) {
+            saveAndReturnFailedChart(name, goal, chartType, csvData, "",
+                    "", "智谱AI调用失败", userId);
+            throw new BusinessException(ErrorCode.THIRD_SERVICE_ERROR, e.getMessage());
         }
-
-        String genChart = splits[1];
-        genChart = genChart.replace("'", "\"");
-        // 检验生成的 Echarts 代码是否合法（有错误）
-        boolean isValid = ChartUtil.checkEchartsTest(genChart);
-        // 生成的 Echarts 代码不合法，因为是同步的数据库无数据所以是保存而不是更新
+        String genResult = AIUtil.extractAnalysis(response).trim();
+        String genChart = AIUtil.extractJsCode(response).replace("'", "\"").trim();
+        log.info("生成的数据结论：" + genResult);
+        log.info("生成的JS代码：" + genChart);
+        boolean isValid = ChartUtil.isChartValid(genChart);
+        log.info("生成的Echarts代码是否合法：{}", isValid);
         if (!isValid) {
-            Chart invalidChart = new Chart();
-            invalidChart.setChartData(csvData);
-            invalidChart.setChartType(chartType);
-            invalidChart.setGoal(goal);
-            invalidChart.setName(name);
-            invalidChart.setUserId(id);
-            invalidChart.setStatus("failed");
-            boolean invalidSaveResult = this.save(invalidChart);
-            if (invalidSaveResult) {
-                log.info("因为 AI 生成图表代码（同步）失败后更改图表状态为失败成功了" + invalidChart.getId());
-            } else {
-                log.info("因为 AI 生成图表代码（同步）失败后更改图表状态为失败失败了");
-            }
+            this.saveAndReturnFailedChart(name, goal, chartType, csvData, genChart,
+                    genResult, "生成的JS代码不合法", userId);
+            throw new BusinessException(ErrorCode.THIRD_SERVICE_ERROR, "图表生成失败");
         }
-        String genResult = splits[2];
+        genChart = ChartUtil.strengthenGenChart(genChart);
 
         // 插入数据到数据库
         Chart chart = new Chart();
@@ -437,25 +351,18 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         chart.setChartType(chartType);
         chart.setGenChart(genChart);
         chart.setGenResult(genResult);
-        chart.setUserId(id);
+        chart.setUserId(userId);
+        chart.setStatus("succeed");
         boolean saveResult = this.save(chart);
-        if (saveResult) {
-            Chart chart1 = new Chart();
-            chart1.setId(chart.getId());
-            chart1.setStatus("succeed");
-            boolean b = this.updateById(chart1);
-            if (!b) {
-                ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
-            }
-        }
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
         UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
         userUpdateWrapper.setSql("score = score - 5");
-        userUpdateWrapper.eq("id", id);
+        userUpdateWrapper.eq("id", userId);
         boolean update = userService.update(userUpdateWrapper);
         if (!update) {
-            log.error("用户 {} 积分扣除失败", id);
+            log.error("用户 {} 积分扣除失败", userId);
         }
+        log.info("图表 Id 为：{} 的对象信息: {}", chart.getId(), chart.toString());
         BIResponse biResponse = new BIResponse();
         biResponse.setGenChart(genChart);
         biResponse.setGenResult(genResult);
@@ -477,6 +384,30 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         return page;
     }
 
+    @Override
+    public void handleChartUpdateSuccess(long chartId, String genChart, String genResult) {
+        Chart chart = new Chart();
+        chart.setId(chartId);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setStatus("succeed");
+        boolean updateResult = this.updateById(chart);
+        if (!updateResult) {
+            log.error("图表Id: {} 更新状态为成功失败了", chartId);
+        }
+    }
+
+    @Override
+    public void handleChartUpdateError(long chartId, String execMessage) {
+        Chart updateChartResult = new Chart();
+        updateChartResult.setId(chartId);
+        updateChartResult.setStatus("failed");
+        updateChartResult.setExecMessage(execMessage);
+        boolean updateResult = this.updateById(updateChartResult);
+        if (!updateResult) {
+            log.error("更新图表状态为失败失败了" + chartId + "," + execMessage);
+        }
+    }
 
     public void trySendMessageByMq(long chartId) {
         try {
@@ -493,4 +424,33 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "调用 AI 接口失败");
         }
     }
+
+    /**
+     * 创建并返回一个状态为失败的图表，并将相关信息落表
+     *
+     * @param name
+     * @param goal
+     * @param chartType
+     * @param chartData
+     * @param genResult
+     * @param execMessage
+     * @param userId
+     */
+    @Override
+    public void saveAndReturnFailedChart(String name, String goal, String chartType,
+                                         String chartData, String genChart, String genResult, String execMessage, Long userId) {
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartType(chartType);
+        chart.setChartData(chartData);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setExecMessage(execMessage);
+        chart.setUserId(userId);
+        chart.setStatus("failed");
+        this.save(chart);
+    }
+
+
 }

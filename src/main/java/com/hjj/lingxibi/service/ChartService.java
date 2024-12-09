@@ -46,13 +46,6 @@ public interface ChartService extends IService<Chart> {
     BIResponse regenChartByAsyncMq(ChartRegenRequest chartRegenRequest, HttpServletRequest request);
 
     /**
-     * 从 ES 中查询图表
-     * @param chartQueryRequestEs
-     * @return
-     */
-    Page<Chart> searchFromEs(ChartQueryRequestEs chartQueryRequestEs);
-
-    /**
      * 同步生成图表
      * @param multipartFile
      * @param genChartByAIRequest
@@ -65,4 +58,18 @@ public interface ChartService extends IService<Chart> {
      * 按关键词搜索我的图表（MySQL 实现）
      */
     Page<Chart> searchMyCharts(ChartQueryRequest chartQueryRequest);
+
+
+    /**
+     * 将图表状态改为成功
+     * @param chartId
+     * @param genChart
+     * @param genResult
+     */
+    void handleChartUpdateSuccess(long chartId, String genChart, String genResult);
+
+    void handleChartUpdateError(long chartId, String execMessage);
+
+    void saveAndReturnFailedChart(String name, String goal, String chartType,
+                                  String chartData, String genChart, String genResult, String execMessage, Long userId);
 }

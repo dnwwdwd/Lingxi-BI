@@ -135,7 +135,7 @@ public class ChartController {
         return ResultUtils.success(biResponse);
     }
 
-/*    *//**
+    /*    *//**
      * 根据AI异步生成图表，线程池实现
      *
      * @param multipartFile
@@ -252,7 +252,7 @@ public class ChartController {
     }*/
 
 
-/*    *//**
+    /*    *//**
      * 根据AI异步生成图表，RabbitMQ实现（无重试机制）
      *
      * @param multipartFile
@@ -330,8 +330,6 @@ public class ChartController {
     }*/
 
 
-
-
     /**
      * 根据AI异步生成图表，RabbitMQ实现（有重试机制）
      *
@@ -393,7 +391,7 @@ public class ChartController {
      */
     @PostMapping("/list/page")
     public BaseResponse<Page<Chart>> listChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
-            HttpServletRequest request) {
+                                                     HttpServletRequest request) {
         long current = chartQueryRequest.getCurrent();
         long size = chartQueryRequest.getPageSize();
         // 限制爬虫
@@ -412,7 +410,7 @@ public class ChartController {
      */
     @PostMapping("/my/list/page")
     public BaseResponse<Page<Chart>> listMyChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
-            HttpServletRequest request) {
+                                                       HttpServletRequest request) {
         if (chartQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -420,14 +418,6 @@ public class ChartController {
         long size = chartQueryRequest.getPageSize();
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
-        // ThrowUtils.throwIf(userId == null || userId <= 0, ErrorCode.NOT_LOGIN_ERROR);
-        // String myChartKeyId = String.format("lingxibi:chart:list:%s", userId);
-        // ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
-        // Page<Chart> myChartPage = (Page<Chart>) valueOperations.get(myChartKeyId);
-        // if(myChartPage != null) {
-        //     log.info("从缓存查询我的图表信息成功");
-        //     return ResultUtils.success(myChartPage);
-        // }
         // 无缓存查询数据库
         chartQueryRequest.setUserId(userId);
         // 限制爬虫
@@ -435,12 +425,6 @@ public class ChartController {
         Page<Chart> chartPage = chartService.page(new Page<>(current, size),
                 chartService.getQueryWrapper(chartQueryRequest));
         ThrowUtils.throwIf(chartPage == null, ErrorCode.SYSTEM_ERROR);
-        // 从数据库查询成功，写入缓存
-        // try{
-        //     valueOperations.set(myChartKeyId, chartPage, 30, TimeUnit.MINUTES);
-        // } catch (Exception e) {
-        //     log.error("写入缓存失败{}", e);
-        // }
         return ResultUtils.success(chartPage);
     }
 
@@ -488,23 +472,6 @@ public class ChartController {
         }
         BIResponse biResponse = chartService.regenChartByAsyncMq(chartRegenRequest, request);
         return ResultUtils.success(biResponse);
-    }
-
-    /**
-     * 搜索我的图标（通过 ES）
-     * @param chartQueryRequestEs
-     * @param request
-     * @return
-     */
-    @PostMapping("/search/page")
-    public BaseResponse<Page<Chart>> searchChartByPageEs(@RequestBody ChartQueryRequestEs chartQueryRequestEs
-                                                         , HttpServletRequest request) {
-        User loginUser = userService.getLoginUser(request);
-        if (loginUser == null) {
-            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
-        }
-        Page<Chart> chartPage = chartService.searchFromEs(chartQueryRequestEs);
-        return ResultUtils.success(chartPage);
     }
 
     /**

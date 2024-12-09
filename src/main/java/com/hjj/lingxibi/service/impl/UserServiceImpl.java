@@ -3,6 +3,7 @@ package com.hjj.lingxibi.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.constant.CommonConstant;
@@ -17,7 +18,6 @@ import com.hjj.lingxibi.model.vo.UserVO;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.SqlUtils;
 import lombok.extern.slf4j.Slf4j;
-import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -112,36 +112,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 3. 记录用户的登录态
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         return this.getLoginUserVO(user);
-    }
-
-    @Override
-    public LoginUserVO userLoginByMpOpen(WxOAuth2UserInfo wxOAuth2UserInfo, HttpServletRequest request) {
-        String unionId = wxOAuth2UserInfo.getUnionId();
-        String mpOpenId = wxOAuth2UserInfo.getOpenid();
-        // 单机锁
-        synchronized (unionId.intern()) {
-            // 查询用户是否已存在
-            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-            queryWrapper.eq("unionId", unionId);
-            User user = this.getOne(queryWrapper);
-            // 被封号，禁止登录
-            if (user != null && UserRoleEnum.BAN.getValue().equals(user.getUserRole())) {
-                throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "该用户已被封，禁止登录");
-            }
-            // 用户不存在则创建
-            if (user == null) {
-                user = new User();
-                user.setUserAvatar(wxOAuth2UserInfo.getHeadImgUrl());
-                user.setUserName(wxOAuth2UserInfo.getNickname());
-                boolean result = this.save(user);
-                if (!result) {
-                    throw new BusinessException(ErrorCode.SYSTEM_ERROR, "登录失败");
-                }
-            }
-            // 记录用户的登录态
-            request.getSession().setAttribute(USER_LOGIN_STATE, user);
-            return getLoginUserVO(user);
-        }
     }
 
     /**
@@ -289,5 +259,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Integer score = user.getScore();
         // 积分为空或者小于5，代表用户无积分，返回false
         return score != null && score >= 5;
+    }
+
+
+    @Override
+    public void deductUserScore(Long userId) {
+        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
+        userUpdateWrapper.eq("id", userId);
+        userUpdateWrapper.setSql("score = score - 5");
+        boolean updateScoreResult = this.update(userUpdateWrapper);
+        if (!updateScoreResult) {
+            log.error("用户: {} 积分扣除失败", userId);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR);
+        }
+        log.info("用户: {} 积分扣除成功", userId);
+    }
+
+    @Override
+    public UserVO getUserVOById(Long id) {
+        User user = this.getById(id);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "用户不存在");
+        }
+        return this.getUserVO(user);
     }
 }

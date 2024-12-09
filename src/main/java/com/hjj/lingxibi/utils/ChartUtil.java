@@ -17,7 +17,10 @@ public class ChartUtil {
 
     public static final String jsCodeSuffix = "}/>";
 
-    public static boolean checkEchartsTest(String echartsCode) {
+    public static boolean isChartValid(String echartsCode) {
+        if (StringUtils.isEmpty(echartsCode)) {
+            return false;
+        }
         StringBuffer stringBuffer = new StringBuffer();
         String jsCode = stringBuffer.append(jsCodePrefix).append(echartsCode).append(jsCodeSuffix).toString();
         Context context = Context.enter();
@@ -79,10 +82,10 @@ public class ChartUtil {
     }
 
     // 将生成的Echarts代码进行增强，拓展下载图表功能
-    public static String strengthenGenChart(String inputString) {
+    public static String strengthenGenChart(String genChart) {
         ObjectMapper mapper = new ObjectMapper();
         try {
-            JsonNode jsonNode = mapper.readTree(inputString);
+            JsonNode jsonNode = mapper.readTree(genChart);
 
             boolean toolboxExists = addToolboxToSeries(jsonNode);
 
@@ -97,7 +100,7 @@ public class ChartUtil {
             return outputString;
         } catch (Exception e) {
             e.printStackTrace();
-            return inputString;
+            return genChart;
         }
     }
 
