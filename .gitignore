@@ -151,3 +151,4 @@ fabric.properties
 ZhiPuAIConstant.java
 application-prod.yml
 application.yml
+AIConstant.java
