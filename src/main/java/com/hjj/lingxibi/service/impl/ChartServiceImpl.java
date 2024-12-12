@@ -19,6 +19,7 @@ import com.hjj.lingxibi.mapper.ChartMapper;
 import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
 import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
 import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
+import com.hjj.lingxibi.model.dto.team_chart.ChartAddToTeamRequest;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.BIResponse;
@@ -450,6 +451,11 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         chart.setUserId(userId);
         chart.setStatus("failed");
         this.save(chart);
+    }
+
+    @Override
+    public boolean addChartToTeam(ChartAddToTeamRequest chartAddToTeamRequest, HttpServletRequest request) {
+
     }
 
 

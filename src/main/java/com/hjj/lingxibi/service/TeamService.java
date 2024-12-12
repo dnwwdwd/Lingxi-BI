@@ -9,6 +9,7 @@ import com.hjj.lingxibi.model.entity.Team;
 import com.hjj.lingxibi.model.vo.TeamVO;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
 * @author hejiajun
@@ -22,4 +23,10 @@ public interface TeamService extends IService<Team> {
     boolean deleteTeam(DeleteRequest deleteRequest, HttpServletRequest request);
 
     Page<TeamVO> listTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
+
+    boolean joinTeam(Team team, HttpServletRequest request);
+
+    boolean exitTeam(Team team, HttpServletRequest request);
+
+    Page<TeamVO> listMyJoinedTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
 }

@@ -8,6 +8,7 @@ import com.hjj.lingxibi.common.ResultUtils;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.model.dto.team.TeamAddRequest;
 import com.hjj.lingxibi.model.dto.team.TeamQueryRequest;
+import com.hjj.lingxibi.model.entity.Team;
 import com.hjj.lingxibi.model.vo.TeamVO;
 import com.hjj.lingxibi.service.TeamService;
 import org.springframework.web.bind.annotation.*;
@@ -47,6 +48,33 @@ public class TeamController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         Page<TeamVO> teamVOS = teamService.listTeam(teamQueryRequest, request);
+        return ResultUtils.success(teamVOS);
+    }
+
+    @PostMapping("/join")
+    public BaseResponse<Boolean> joinTeam(@RequestBody Team team, HttpServletRequest request) {
+        if (team == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean b = teamService.joinTeam(team, request);
+        return ResultUtils.success(b);
+    }
+
+    @PostMapping("/exit")
+    public BaseResponse<Boolean> exitTeam(@RequestBody Team team, HttpServletRequest request) {
+        if (team == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean b = teamService.exitTeam(team, request);
+        return ResultUtils.success(b);
+    }
+
+    @PostMapping("/page/my/joined")
+    public BaseResponse<Page<TeamVO>> listMyJoinedTeam(@RequestBody TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
+        if (teamQueryRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Page<TeamVO> teamVOS = teamService.listMyJoinedTeam(teamQueryRequest, request);
         return ResultUtils.success(teamVOS);
     }
 

@@ -7,6 +7,7 @@ import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
 import com.hjj.lingxibi.model.dto.chart.ChartQueryRequestEs;
 import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
 import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
+import com.hjj.lingxibi.model.dto.team_chart.ChartAddToTeamRequest;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.vo.BIResponse;
 import org.springframework.web.multipart.MultipartFile;
@@ -72,4 +73,6 @@ public interface ChartService extends IService<Chart> {
 
     void saveAndReturnFailedChart(String name, String goal, String chartType,
                                   String chartData, String genChart, String genResult, String execMessage, Long userId);
+
+    boolean addChartToTeam(ChartAddToTeamRequest chartAddToTeamRequest, HttpServletRequest request);
 }

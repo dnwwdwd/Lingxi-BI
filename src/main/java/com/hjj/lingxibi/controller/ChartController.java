@@ -10,6 +10,7 @@ import com.hjj.lingxibi.constant.UserConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.exception.ThrowUtils;
 import com.hjj.lingxibi.model.dto.chart.*;
+import com.hjj.lingxibi.model.dto.team_chart.ChartAddToTeamRequest;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.BIResponse;
@@ -486,5 +487,15 @@ public class ChartController {
         }
         Page<Chart> page = chartService.searchMyCharts(chartQueryRequest);
         return ResultUtils.success(page);
+    }
+
+    @PostMapping("/add/to/team")
+    public BaseResponse<Boolean> addChartToTeam(@RequestBody ChartAddToTeamRequest chartAddToTeamRequest, HttpServletRequest request) {
+        if (chartAddToTeamRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean b = chartService.addChartToTeam(chartAddToTeamRequest, request);
+        return ResultUtils.success(b);
+
     }
 }
