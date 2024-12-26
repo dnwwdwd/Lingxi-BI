@@ -14,6 +14,7 @@ import com.hjj.lingxibi.constant.RedisConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.exception.ThrowUtils;
 import com.hjj.lingxibi.manager.RedisLimiterManager;
+import com.hjj.lingxibi.manager.SSEManager;
 import com.hjj.lingxibi.manager.ZhiPuAIManager;
 import com.hjj.lingxibi.mapper.ChartMapper;
 import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
@@ -86,9 +87,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Resource
     private ZhiPuAIManager zhiPuAIManager;
-    @Autowired
-    private TeamServiceImpl teamServiceImpl;
 
+    @Resource
+    private SSEManager sseManager;
     /**
      * 获取查询包装类
      *
@@ -408,6 +409,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!updateResult) {
             log.error("图表Id: {} 更新状态为成功失败了", chartId);
         }
+        chart = this.getById(chartId);
+        sseManager.sendChartUpdate(chart.getUserId(), chart);
     }
 
     @Override
@@ -420,6 +423,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!updateResult) {
             log.error("更新图表状态为失败失败了" + chartId + "," + execMessage);
         }
+        Chart chart = this.getById(chartId);
+        sseManager.sendChartUpdate(chart.getUserId(), chart);
     }
 
     public void trySendMessageByMq(long chartId) {

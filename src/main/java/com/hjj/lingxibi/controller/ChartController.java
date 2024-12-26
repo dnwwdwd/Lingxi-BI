@@ -9,6 +9,7 @@ import com.hjj.lingxibi.common.ResultUtils;
 import com.hjj.lingxibi.constant.UserConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.exception.ThrowUtils;
+import com.hjj.lingxibi.manager.SSEManager;
 import com.hjj.lingxibi.model.dto.chart.*;
 import com.hjj.lingxibi.model.dto.team_chart.ChartAddToTeamRequest;
 import com.hjj.lingxibi.model.entity.Chart;
@@ -38,6 +39,9 @@ public class ChartController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private SSEManager sseManager;
 
     /**
      * 创建
@@ -416,10 +420,11 @@ public class ChartController {
         if (chartQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        long current = chartQueryRequest.getCurrent();
-        long size = chartQueryRequest.getPageSize();
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
+
+        long current = chartQueryRequest.getCurrent();
+        long size = chartQueryRequest.getPageSize();
         // 无缓存查询数据库
         chartQueryRequest.setUserId(userId);
         // 限制爬虫

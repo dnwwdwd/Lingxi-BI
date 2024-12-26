@@ -1,15 +1,15 @@
 package com.hjj.lingxibi.bizmq;
 
-import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.exception.BusinessException;
+import com.hjj.lingxibi.manager.SSEManager;
 import com.hjj.lingxibi.manager.ZhiPuAIManager;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.service.ChartService;
-import com.hjj.lingxibi.utils.MQUtil;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.AIUtil;
 import com.hjj.lingxibi.utils.ChartUtil;
+import com.hjj.lingxibi.utils.MQUtil;
 import com.rabbitmq.client.Channel;
 import com.zhipu.oapi.service.v4.model.ChatMessage;
 import com.zhipu.oapi.service.v4.model.ChatMessageRole;
@@ -36,10 +36,7 @@ public class BIMessageConsumerByZhiPuAI {
     private UserService userService;
 
     @Resource
-    private Retryer<Boolean> retryer;
-
-    @Resource
-    private BIMessageProducer biMessageProducer;
+    private SSEManager sseManager;
 
     @Resource
     private ZhiPuAIManager zhiPuAIManager;
@@ -118,8 +115,12 @@ public class BIMessageConsumerByZhiPuAI {
         // 更新图表任务状态为成功
         chartService.handleChartUpdateSuccess(chartId, genChart, genResult);
 
+        Long userId = chart.getUserId();
         // 扣除用户积分（调用一次 AI 服务，扣除5个积分）
-        userService.deductUserScore(chart.getUserId());
+        userService.deductUserScore(userId);
+
+        // 将生成的图表推送到SSE
+        sseManager.sendChartUpdate(userId, chartService.getById(chartId));
 
         // 如果任务执行成功，手动执行ack
         try {
@@ -129,5 +130,4 @@ public class BIMessageConsumerByZhiPuAI {
             throw new RuntimeException(e);
         }
     }
-
 }
