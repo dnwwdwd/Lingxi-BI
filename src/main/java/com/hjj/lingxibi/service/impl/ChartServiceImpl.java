@@ -21,9 +21,13 @@ import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
 import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
 import com.hjj.lingxibi.model.dto.team_chart.ChartAddToTeamRequest;
 import com.hjj.lingxibi.model.entity.Chart;
+import com.hjj.lingxibi.model.entity.Team;
+import com.hjj.lingxibi.model.entity.TeamChart;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.BIResponse;
 import com.hjj.lingxibi.service.ChartService;
+import com.hjj.lingxibi.service.TeamChartService;
+import com.hjj.lingxibi.service.TeamService;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.AIUtil;
 import com.hjj.lingxibi.utils.ChartUtil;
@@ -32,9 +36,11 @@ import com.hjj.lingxibi.utils.SqlUtils;
 import com.zhipu.oapi.service.v4.model.ChatMessage;
 import com.zhipu.oapi.service.v4.model.ChatMessageRole;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,8 +48,10 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 /**
  * @author hejiajun
@@ -62,6 +70,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     private ChartMapper chartMapper;
 
     @Resource
+    private TeamChartService teamChartService;
+
+    @Resource
+    private TeamService teamService;
+
+    @Resource
     private RedisLimiterManager redisLimiterManager;
 
     @Resource
@@ -71,11 +85,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     private Retryer<Boolean> retryer;
 
     @Resource
-    private ElasticsearchRestTemplate elasticsearchRestTemplate;
-
-
-    @Resource
     private ZhiPuAIManager zhiPuAIManager;
+    @Autowired
+    private TeamServiceImpl teamServiceImpl;
 
     /**
      * 获取查询包装类
@@ -455,8 +467,36 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public boolean addChartToTeam(ChartAddToTeamRequest chartAddToTeamRequest, HttpServletRequest request) {
-
+        Long chartId = chartAddToTeamRequest.getChartId();
+        Long teamId = chartAddToTeamRequest.getTeamId();
+        Chart chart = this.getById(chartId);
+        if (chart == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "图表不存在");
+        }
+        Team team = teamService.getById(teamId);
+        if (team == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍不存在");
+        }
+        TeamChart teamChart = TeamChart.builder().teamId(teamId).chartId(chartId).build();
+        return teamChartService.save(teamChart);
     }
 
+    @Override
+    public Page<Chart> pageTeamChart(ChartQueryRequest chartQueryRequest) {
+        Long teamId = chartQueryRequest.getTeamId();
+        long current = chartQueryRequest.getCurrent();
+        long pageSize = chartQueryRequest.getPageSize();
+        Page<TeamChart> teamChartPage = teamChartService.page(new Page<>(current, pageSize), new QueryWrapper<TeamChart>().eq("teamId", teamId));
+        if (CollectionUtils.isEmpty(teamChartPage.getRecords())) {
+            return new Page<>();
+        }
+        List<Long> chartIds = teamChartPage.getRecords().stream()
+                .map(TeamChart::getChartId).collect(Collectors.toList());
+        List<Chart> charts = this.listByIds(chartIds);
+        Page<Chart> chartPage = new Page<>(current, pageSize);
+        chartPage.setRecords(charts);
+        chartPage.setTotal(chartIds.size());
+        return chartPage;
+    }
 
 }

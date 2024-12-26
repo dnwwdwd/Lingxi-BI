@@ -103,9 +103,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
                 CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
         Page<Team> teamPage = this.page(new Page<>(current, pageSize), queryWrapper);
         List<Team> teamPageRecords = teamPage.getRecords();
-        List<TeamVO> teamVOList = this.getTeamVOList(teamPageRecords);
+        List<TeamVO> teamVOs = this.getTeamVOList(teamPageRecords, request);
         Page<TeamVO> teamVOPage = new Page<>(current, pageSize);
-        teamVOPage.setRecords(teamVOList);
+        teamVOPage.setRecords(teamVOs);
         teamVOPage.setTotal(teamPage.getTotal());
         return teamVOPage;
     }
@@ -187,7 +187,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         List<Long> teamIds = teamUserPage.getRecords().stream().map(TeamUser::getTeamId)
                 .collect(Collectors.toList());
         List<Team> teams = this.listByIds(teamIds);
-        List<TeamVO> teamVOs = this.getTeamVOList(teams);
+        List<TeamVO> teamVOs = this.getTeamVOList(teams, request);
         Page<TeamVO> teamVOPage = new Page<>(current, pageSize);
         teamVOPage.setRecords(teamVOs);
         teamVOPage.setTotal(teamUserPage.getTotal());
@@ -204,11 +204,12 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         return count > 0;
     }
 
-    private List<TeamVO> getTeamVOList(List<Team> teams) {
+    private List<TeamVO> getTeamVOList(List<Team> teams, HttpServletRequest request) {
         return teams.stream().map(team -> {
             TeamVO teamVO = new TeamVO();
             BeanUtils.copyProperties(team, teamVO);
             teamVO.setUserVO(userService.getUserVOById(team.getUserId()));
+            teamVO.setInTeam(this.isInTeam(team, request));
             return teamVO;
         }).collect(Collectors.toList());
     }

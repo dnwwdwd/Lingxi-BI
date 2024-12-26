@@ -23,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
  * 图表接口
@@ -498,4 +499,5 @@ public class ChartController {
         return ResultUtils.success(b);
 
     }
+
 }

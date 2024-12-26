@@ -6,16 +6,21 @@ import com.hjj.lingxibi.common.DeleteRequest;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.common.ResultUtils;
 import com.hjj.lingxibi.exception.BusinessException;
+import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
 import com.hjj.lingxibi.model.dto.team.TeamAddRequest;
 import com.hjj.lingxibi.model.dto.team.TeamQueryRequest;
+import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.Team;
 import com.hjj.lingxibi.model.vo.TeamVO;
+import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.TeamService;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
 
 @RequestMapping("/team")
 @RestController
@@ -23,6 +28,9 @@ public class TeamController {
 
     @Resource
     private TeamService teamService;
+
+    @Resource
+    private ChartService chartService;
 
     @PostMapping("/add")
     public BaseResponse<Boolean> addTeam(@RequestBody TeamAddRequest teamAddRequest, HttpServletRequest request) {
@@ -43,7 +51,7 @@ public class TeamController {
     }
 
     @PostMapping("/list/page")
-    public BaseResponse<Page<TeamVO>> listTeam(@RequestBody TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
+    public BaseResponse<Page<TeamVO>> listTeamByPage(@RequestBody TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
         if (teamQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -76,6 +84,16 @@ public class TeamController {
         }
         Page<TeamVO> teamVOS = teamService.listMyJoinedTeam(teamQueryRequest, request);
         return ResultUtils.success(teamVOS);
+    }
+
+    @PostMapping("/chart/page")
+    public BaseResponse<Page<Chart>> listTeamChartByPage(@RequestBody ChartQueryRequest chartQueryRequest) {
+        Long teamId = chartQueryRequest.getTeamId();
+        if (teamId == null || teamId < 1) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Page<Chart> chartPage = chartService.pageTeamChart(chartQueryRequest);
+        return ResultUtils.success(chartPage);
     }
 
 }

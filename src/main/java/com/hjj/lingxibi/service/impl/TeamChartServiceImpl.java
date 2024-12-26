@@ -2,8 +2,8 @@ package com.hjj.lingxibi.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hjj.lingxibi.model.entity.TeamChart;
-import generator.service.TeamChartService;
 import com.hjj.lingxibi.mapper.TeamChartMapper;
+import com.hjj.lingxibi.service.TeamChartService;
 import org.springframework.stereotype.Service;
 
 /**
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 */
 @Service
 public class TeamChartServiceImpl extends ServiceImpl<TeamChartMapper, TeamChart>
-    implements TeamChartService{
+    implements TeamChartService {
 
 }
 

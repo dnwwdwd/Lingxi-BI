@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
-import com.hjj.lingxibi.model.dto.chart.ChartQueryRequestEs;
 import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
 import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
 import com.hjj.lingxibi.model.dto.team_chart.ChartAddToTeamRequest;
@@ -75,4 +74,6 @@ public interface ChartService extends IService<Chart> {
                                   String chartData, String genChart, String genResult, String execMessage, Long userId);
 
     boolean addChartToTeam(ChartAddToTeamRequest chartAddToTeamRequest, HttpServletRequest request);
+
+    Page<Chart> pageTeamChart(ChartQueryRequest chartQueryRequest);
 }

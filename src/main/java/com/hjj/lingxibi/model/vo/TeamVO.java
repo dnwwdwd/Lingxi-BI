@@ -45,4 +45,5 @@ public class TeamVO implements Serializable {
 
     private UserVO userVO;
 
+    private boolean inTeam;
 }

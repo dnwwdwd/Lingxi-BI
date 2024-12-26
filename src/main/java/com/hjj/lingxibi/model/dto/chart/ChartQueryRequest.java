@@ -64,5 +64,7 @@ public class ChartQueryRequest extends PageRequest implements Serializable {
      */
     private String searchParams;
 
+    private Long teamId;
+
     private static final long serialVersionUID = 1L;
 }
