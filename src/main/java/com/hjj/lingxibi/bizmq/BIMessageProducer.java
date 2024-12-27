@@ -7,6 +7,7 @@ import javax.annotation.Resource;
 
 @Component
 public class BIMessageProducer {
+
     @Resource
     private RabbitTemplate rabbitTemplate;
 

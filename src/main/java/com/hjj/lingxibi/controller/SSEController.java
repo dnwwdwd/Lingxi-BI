@@ -18,7 +18,7 @@ public class SSEController {
 
     @GetMapping("/connect")
     public SseEmitter connect(@RequestParam("userId") Long userId) {
-        return sseManager.createConnection(userId);
+        return sseManager.createChartSSEConnection(userId);
     }
 
 }

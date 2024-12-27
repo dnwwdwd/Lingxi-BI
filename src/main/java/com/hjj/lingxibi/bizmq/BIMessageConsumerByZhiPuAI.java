@@ -1,5 +1,6 @@
 package com.hjj.lingxibi.bizmq;
 
+import cn.hutool.json.JSONUtil;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.manager.SSEManager;
@@ -57,7 +58,22 @@ public class BIMessageConsumerByZhiPuAI {
             log.info("此消息正在被转发到死信队列中");
         }
 
-        long chartId = Long.parseLong(message);
+        // 将消息转换为对象
+        MQMessage mqMessage = JSONUtil.toBean(message, MQMessage.class);
+        Long chartId = mqMessage.getChartId();
+        Long teamId = mqMessage.getTeamId();
+
+        if (chartId == null || chartId < 1) {
+            // 如果失败，消息拒绝
+            try {
+                channel.basicNack(deliveryTag, false, false);
+            } catch (IOException e) {
+                log.info("消息拒绝失败：", e);
+                throw new RuntimeException(e);
+            }
+            log.info("消息为空拒绝接收");
+        }
+
         Chart chart = chartService.getById(chartId);
         if (chart == null) {
             try {
@@ -83,7 +99,7 @@ public class BIMessageConsumerByZhiPuAI {
                 log.error("消息拒绝失败，图表Id：" + chartId + "，异常信息" + e);
                 throw new RuntimeException(e);
             }
-            chartService.handleChartUpdateError(chart.getId(), "更新图表执行状态失败");
+            chartService.handleChartUpdateError(chart.getId(), teamId,"更新图表执行状态失败");
             return;
         }
         String userInput = buildUserInput(chart);
@@ -94,7 +110,7 @@ public class BIMessageConsumerByZhiPuAI {
         try {
             result = zhiPuAIManager.doChat(chatMessage, chartId);
         } catch (Exception e) {
-            chartService.handleChartUpdateError(chart.getId(), "调用智谱AI失败");
+            chartService.handleChartUpdateError(chart.getId(), teamId,"调用智谱AI失败");
             log.info("图表Id: {} 调用智谱 AI 失败了", chartId);
             MQUtil.rejectMsgAndRequeue(channel, deliveryTag, chartId);
             return;
@@ -107,13 +123,13 @@ public class BIMessageConsumerByZhiPuAI {
         log.info("图表Id为" + chartId + "生成的Echarts代码是否合法：" + isValid);
         // 生成的 Echarts 代码不合法
         if (!isValid) {
-            chartService.handleChartUpdateError(chartId, "生成的 Echarts 代码不合法");
+            chartService.handleChartUpdateError(chartId, teamId,"生成的 Echarts 代码不合法");
             return;
         }
         // 生成的 Echarts 代码合法则将生成的Echarts代码进行增强，拓展下载图表功能
         genChart = strengthenGenChart(genChart);
         // 更新图表任务状态为成功
-        chartService.handleChartUpdateSuccess(chartId, genChart, genResult);
+        chartService.handleChartUpdateSuccess(chartId, teamId, genChart, genResult);
 
         Long userId = chart.getUserId();
         // 扣除用户积分（调用一次 AI 服务，扣除5个积分）

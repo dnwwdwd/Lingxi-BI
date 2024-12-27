@@ -66,9 +66,9 @@ public interface ChartService extends IService<Chart> {
      * @param genChart
      * @param genResult
      */
-    void handleChartUpdateSuccess(long chartId, String genChart, String genResult);
+    void handleChartUpdateSuccess(Long chartId, Long teamId, String genChart, String genResult);
 
-    void handleChartUpdateError(long chartId, String execMessage);
+    void handleChartUpdateError(Long chartId, Long teamId, String execMessage);
 
     void saveAndReturnFailedChart(String name, String goal, String chartType,
                                   String chartData, String genChart, String genResult, String execMessage, Long userId);

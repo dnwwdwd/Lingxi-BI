@@ -40,9 +40,6 @@ public class ChartController {
     @Resource
     private UserService userService;
 
-    @Resource
-    private SSEManager sseManager;
-
     /**
      * 创建
      *
@@ -258,7 +255,7 @@ public class ChartController {
     }*/
 
 
-    /*    *//**
+    /*
      * 根据AI异步生成图表，RabbitMQ实现（无重试机制）
      *
      * @param multipartFile

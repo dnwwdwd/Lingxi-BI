@@ -1,6 +1,8 @@
 package com.hjj.lingxibi.service.impl;
 
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.json.JSON;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -8,6 +10,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.rholder.retry.RetryException;
 import com.github.rholder.retry.Retryer;
 import com.hjj.lingxibi.bizmq.BIMessageProducer;
+import com.hjj.lingxibi.bizmq.MQMessage;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.constant.RedisConstant;
@@ -41,15 +44,12 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -183,7 +183,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (saveResult) {
             log.info("图表初次保存至数据库成功");
             Long newChartId = chart.getId();
-            biMessageProducer.sendMessage(String.valueOf(newChartId));
+            trySendMessageByMq(newChartId);
             // 创建 BIResponse 对象并返回
             biResponse = new BIResponse();
             biResponse.setChartId(newChartId);
@@ -399,7 +399,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     @Override
-    public void handleChartUpdateSuccess(long chartId, String genChart, String genResult) {
+    public void handleChartUpdateSuccess(Long chartId, Long teamId, String genChart, String genResult) {
         Chart chart = new Chart();
         chart.setId(chartId);
         chart.setGenChart(genChart);
@@ -409,12 +409,16 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!updateResult) {
             log.error("图表Id: {} 更新状态为成功失败了", chartId);
         }
+        // 推送 SSE
         chart = this.getById(chartId);
         sseManager.sendChartUpdate(chart.getUserId(), chart);
+        if (teamId != null) {
+            sseManager.sendTeamChartUpdate(teamId, chart);
+        }
     }
 
     @Override
-    public void handleChartUpdateError(long chartId, String execMessage) {
+    public void handleChartUpdateError(Long chartId, Long teamId, String execMessage) {
         Chart updateChartResult = new Chart();
         updateChartResult.setId(chartId);
         updateChartResult.setStatus("failed");
@@ -423,13 +427,37 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!updateResult) {
             log.error("更新图表状态为失败失败了" + chartId + "," + execMessage);
         }
+        // 推送 SSE
         Chart chart = this.getById(chartId);
         sseManager.sendChartUpdate(chart.getUserId(), chart);
+        if (teamId != null) {
+            sseManager.sendTeamChartUpdate(teamId, chart);
+        }
     }
 
-    public void trySendMessageByMq(long chartId) {
+    private void trySendMessageByMq(long chartId) {
+        MQMessage mqMessage = MQMessage.builder().chartId(chartId).build();
+        String mqMessageJson = JSONUtil.toJsonStr(mqMessage);
         try {
-            biMessageProducer.sendMessage(String.valueOf(chartId));
+            biMessageProducer.sendMessage(mqMessageJson);
+        } catch (Exception e) {
+            log.error("图表成功保存至数据库，但是消息投递失败");
+            Chart failedChart = new Chart();
+            failedChart.setId(chartId);
+            failedChart.setStatus("failed");
+            boolean b = this.updateById(failedChart);
+            if (!b) {
+                throw new RuntimeException("修改图表状态信息为失败失败了");
+            }
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "调用 AI 接口失败");
+        }
+    }
+
+    public void trySendMessageByMq(long chartId, long teamId) {
+        MQMessage mqMessage = MQMessage.builder().chartId(chartId).teamId(teamId).build();
+        String mqMessageJson = JSONUtil.toJsonStr(mqMessage);
+        try {
+            biMessageProducer.sendMessage(mqMessageJson);
         } catch (Exception e) {
             log.error("图表成功保存至数据库，但是消息投递失败");
             Chart failedChart = new Chart();
@@ -491,7 +519,11 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         Long teamId = chartQueryRequest.getTeamId();
         long current = chartQueryRequest.getCurrent();
         long pageSize = chartQueryRequest.getPageSize();
-        Page<TeamChart> teamChartPage = teamChartService.page(new Page<>(current, pageSize), new QueryWrapper<TeamChart>().eq("teamId", teamId));
+        // 建立 SSE 连接
+        sseManager.createTeamChartSSEConnection(teamId);
+        // 查询队伍图表
+        Page<TeamChart> teamChartPage = teamChartService.page(new Page<>(current, pageSize),
+                new QueryWrapper<TeamChart>().eq("teamId", teamId));
         if (CollectionUtils.isEmpty(teamChartPage.getRecords())) {
             return new Page<>();
         }

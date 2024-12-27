@@ -32,10 +32,12 @@ public class TtlQueueConfig {
     // 普通队列
     @Bean("commonQueue")
     public Queue commonQueue() {
-        Map<String, Object> map = new HashMap<>(3);
+        Map<String, Object> map = new HashMap<>(4);
         map.put("x-message-ttl", 20000);
         map.put("x-dead-letter-exchange", DEAD_LETTER_EXCHANGE);
         map.put("x-dead-letter-routing-key", DEAD_LETTER_ROUTINGKEY);
+        // 设置正常队列的长度限制
+        map.put("x-max-length", 30);
         return QueueBuilder.durable(COMMON_QUEUE).withArguments(map).build();
     }
 
