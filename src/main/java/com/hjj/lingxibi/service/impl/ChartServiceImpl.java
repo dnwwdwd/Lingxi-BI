@@ -345,7 +345,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             throw new BusinessException(ErrorCode.THIRD_SERVICE_ERROR, e.getMessage());
         }
         String genResult = AIUtil.extractAnalysis(response).trim();
-        String genChart = AIUtil.extractJsCode(response).replace("'", "\"").trim();
+        String genChart = AIUtil.extractJsCode(response);
+        genChart = ChartUtil.optimizeGenChart(genChart);
         log.info("生成的数据结论：" + genResult);
         log.info("生成的JS代码：" + genChart);
         boolean isValid = ChartUtil.isChartValid(genChart);

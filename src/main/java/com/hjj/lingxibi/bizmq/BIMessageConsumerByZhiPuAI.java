@@ -117,7 +117,7 @@ public class BIMessageConsumerByZhiPuAI {
         }
         String genResult = AIUtil.extractAnalysis(result).trim();
         String genChart = AIUtil.extractJsCode(result).trim();
-        genChart = genChart.replace("'", "\"").trim();
+        genChart = ChartUtil.optimizeGenChart(genChart);
         // 检查生成的 Echarts 代码是否合法
         boolean isValid = ChartUtil.isChartValid(genChart);
         log.info("图表Id为" + chartId + "生成的Echarts代码是否合法：" + isValid);

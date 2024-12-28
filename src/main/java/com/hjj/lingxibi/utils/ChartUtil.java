@@ -128,4 +128,10 @@ public class ChartUtil {
         return toolboxExists;
     }
 
+    public static String optimizeGenChart(String echartsCode) {
+        return echartsCode.replace("'", "\"").trim().
+                replaceAll("\\s*\"\\s*(\\w+)\\s*\"\\s*:", "\"$1\":");
+    }
+
+
 }
