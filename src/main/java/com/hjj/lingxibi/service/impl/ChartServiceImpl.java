@@ -538,8 +538,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         long pageSize = chartQueryRequest.getPageSize();
         String name = chartQueryRequest.getName();
         // 建立 SSE 连接
-        sseManager.createTeamChartSSEConnection(teamId);
-        // 查询队伍图表
         Page<TeamChart> teamChartPage = teamChartService.page(new Page<>(current, pageSize),
                 new QueryWrapper<TeamChart>().eq("teamId", teamId));
         if (CollectionUtils.isEmpty(teamChartPage.getRecords())) {
@@ -581,8 +579,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public Boolean regenChartByAsyncMqAdmin(ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
-            Long charId = chartRegenRequest.getId();
-            trySendMessageToAdminConsumer(charId);
+        Long charId = chartRegenRequest.getId();
+        trySendMessageToAdminConsumer(charId);
         return true;
     }
 
@@ -667,6 +665,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
                 log.error("修改后的图表信息重试保存至数据库失败", e);
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "修改后的图表信息重试保存至数据库失败");
             }
-        }}
+        }
+    }
 
 }
