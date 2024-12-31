@@ -16,9 +16,14 @@ public class SSEController {
     @Resource
     private SSEManager sseManager;
 
-    @GetMapping("/connect")
-    public SseEmitter connect(@RequestParam("userId") Long userId) {
+    @GetMapping("/user/connect")
+    public SseEmitter userSSEConnect(@RequestParam("userId") Long userId) {
         return sseManager.createChartSSEConnection(userId);
+    }
+
+    @GetMapping("/team/connect")
+    public SseEmitter teamSSEConnect(@RequestParam("teamId") Long teamId) {
+       return sseManager.createTeamChartSSEConnection(teamId);
     }
 
 }

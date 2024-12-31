@@ -474,9 +474,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         MQMessage mqMessage = MQMessage.builder().chartId(chartId).build();
         String mqMessageJson = JSONUtil.toJsonStr(mqMessage);
         try {
-            biMessageProducer.sendMessage(mqMessageJson);
+            biMessageProducer.sendMessageToCommonQueue(mqMessageJson);
         } catch (Exception e) {
-            log.error("图表成功保存至数据库，但是消息投递失败");
+            log.error("图表成功保存至数据库，但是消息投递失败（admin）");
             Chart failedChart = new Chart();
             failedChart.setId(chartId);
             failedChart.setStatus("failed");
@@ -484,7 +484,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             if (!b) {
                 throw new RuntimeException("修改图表状态信息为失败失败了");
             }
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "MQ 消息发送失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "MQ 消息发送失败（admin）");
         }
     }
 
@@ -574,14 +574,15 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
         QueryWrapper<Chart> queryWrapper = this.getQueryWrapper(chartQueryRequest);
         queryWrapper.like(StringUtils.isNotEmpty(searchParams), "name", searchParams).or(StringUtils.isNotEmpty(searchParams), wrapper -> wrapper.like("status", searchParams));
+        queryWrapper.orderBy(true, true, "updateTime");
         Page<Chart> chartPage = this.page(new Page<>(current, size), queryWrapper);
         return chartPage;
     }
 
     @Override
     public Boolean regenChartByAsyncMqAdmin(ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
-        Long charId = chartRegenRequest.getId();
-        trySendMessageToAdminConsumer(charId);
+            Long charId = chartRegenRequest.getId();
+            trySendMessageToAdminConsumer(charId);
         return true;
     }
 
@@ -620,6 +621,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标为空");
         ThrowUtils.throwIf(StringUtils.isBlank(chartData), ErrorCode.PARAMS_ERROR, "原始数据为空");
         ThrowUtils.throwIf(StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR, "图表类型为空");
+        ThrowUtils.throwIf(teamId == null, ErrorCode.PARAMS_ERROR, "队伍Id为空");
         // 查看重新生成的图标是否存在
         ChartQueryRequest chartQueryRequest = new ChartQueryRequest();
         chartQueryRequest.setId(chartId);
@@ -638,7 +640,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (updateResult) {
             log.info("修改后的图表信息初次保存至数据库成功");
             // 初次保存成功，则向MQ投递消息
-            trySendMessageByMq(chartId);
+            trySendMessageByMq(chartId, teamId);
             BIResponse biResponse = new BIResponse();
             biResponse.setChartId(chartId);
             return biResponse;

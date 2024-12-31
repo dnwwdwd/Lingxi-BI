@@ -140,9 +140,10 @@ public class BIMessageConsumerByZhiPuAI {
         userService.deductUserScore(userId);
 
         // 将生成的图表推送到SSE
-        sseManager.sendChartUpdate(userId, chart);
         if (teamId != null) {
-            sseManager.sendTeamChartUpdate(teamId, chart);
+            sseManager.sendTeamChartUpdate(teamId, chartService.getById(chartId));
+        } else {
+            sseManager.sendChartUpdate(userId, chartService.getById(chartId));
         }
 
         // 如果任务执行成功，手动执行ack
