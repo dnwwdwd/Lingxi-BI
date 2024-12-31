@@ -17,4 +17,5 @@ public class MQUtil {
             throw new RuntimeException(e);
         }
     }
+
 }

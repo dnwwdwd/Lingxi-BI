@@ -6,6 +6,7 @@ import com.hjj.lingxibi.common.DeleteRequest;
 import com.hjj.lingxibi.model.dto.team.TeamAddRequest;
 import com.hjj.lingxibi.model.dto.team.TeamQueryRequest;
 import com.hjj.lingxibi.model.entity.Team;
+import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.TeamVO;
 
 import javax.servlet.http.HttpServletRequest;
@@ -20,7 +21,7 @@ public interface TeamService extends IService<Team> {
 
     boolean addTeam(TeamAddRequest teamAddRequest, HttpServletRequest request);
 
-    boolean deleteTeam(DeleteRequest deleteRequest, HttpServletRequest request);
+    boolean deleteTeam(DeleteRequest deleteRequest);
 
     Page<TeamVO> listTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
 
@@ -28,5 +29,11 @@ public interface TeamService extends IService<Team> {
 
     boolean exitTeam(Team team, HttpServletRequest request);
 
-    Page<TeamVO> listMyJoinedTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
+    Page<TeamVO> pageMyJoinedTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
+
+    List<Team> listAllMyJoinedTeam(HttpServletRequest request);
+
+    Page<Team> pageTeam(TeamQueryRequest teamQueryRequest);
+
+    Boolean updateTeam(Team team);
 }

@@ -1,7 +1,9 @@
 package com.hjj.lingxibi.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 
@@ -9,6 +11,7 @@ import com.hjj.lingxibi.model.dto.user.UserQueryRequest;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.LoginUserVO;
 import com.hjj.lingxibi.model.vo.UserVO;
+import org.springframework.web.bind.annotation.RequestBody;
 
 public interface UserService extends IService<User> {
 
@@ -116,4 +119,18 @@ public interface UserService extends IService<User> {
     void deductUserScore(Long userId);
 
     UserVO getUserVOById(Long id);
+
+    void deductUserGeneratIngCount(User user);
+
+    void increaseUserGeneratIngCount(User user);
+
+    Boolean canGenerateChart(User user);
+
+    Page<User> pageUser(UserQueryRequest userQueryRequest);
+
+    Boolean updateUser(User user, HttpServletRequest request);
+
+    boolean addUser(User user);
+
+    boolean deleteUser(long userId, HttpServletRequest request);
 }

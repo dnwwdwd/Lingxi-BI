@@ -1,26 +1,28 @@
 package com.hjj.lingxibi.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.hjj.lingxibi.annotation.AuthCheck;
 import com.hjj.lingxibi.common.BaseResponse;
 import com.hjj.lingxibi.common.DeleteRequest;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.common.ResultUtils;
+import com.hjj.lingxibi.constant.UserConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
+import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
 import com.hjj.lingxibi.model.dto.team.TeamAddRequest;
 import com.hjj.lingxibi.model.dto.team.TeamQueryRequest;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.Team;
+import com.hjj.lingxibi.model.vo.BIResponse;
 import com.hjj.lingxibi.model.vo.TeamVO;
 import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.TeamService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 @RequestMapping("/team")
 @RestController
@@ -38,15 +40,6 @@ public class TeamController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         boolean b = teamService.addTeam(teamAddRequest, request);
-        return ResultUtils.success(b);
-    }
-
-    @PostMapping("/delete")
-    public BaseResponse<Boolean> deleteTeam(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
-        if (deleteRequest == null) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        boolean b = teamService.deleteTeam(deleteRequest, request);
         return ResultUtils.success(b);
     }
 
@@ -78,11 +71,11 @@ public class TeamController {
     }
 
     @PostMapping("/page/my/joined")
-    public BaseResponse<Page<TeamVO>> listMyJoinedTeam(@RequestBody TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
+    public BaseResponse<Page<TeamVO>> pageMyJoinedTeam(@RequestBody TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
         if (teamQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Page<TeamVO> teamVOS = teamService.listMyJoinedTeam(teamQueryRequest, request);
+        Page<TeamVO> teamVOS = teamService.pageMyJoinedTeam(teamQueryRequest, request);
         return ResultUtils.success(teamVOS);
     }
 
@@ -94,6 +87,51 @@ public class TeamController {
         }
         Page<Chart> chartPage = chartService.pageTeamChart(chartQueryRequest);
         return ResultUtils.success(chartPage);
+    }
+
+    @GetMapping("/list/my/joined")
+    public BaseResponse<List<Team>> listAllMyJoinedTeam(HttpServletRequest request) {
+        return ResultUtils.success(teamService.listAllMyJoinedTeam(request));
+    }
+
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @PostMapping("/page")
+    public BaseResponse<Page<Team>> pageTeam(@RequestBody TeamQueryRequest teamQueryRequest) {
+        if (teamQueryRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Page<Team> teamPage = teamService.pageTeam(teamQueryRequest);
+        return ResultUtils.success(teamPage);
+    }
+
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @PostMapping("/update")
+    public BaseResponse<Boolean> updateTeam(@RequestBody Team team) {
+        if (team == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean b = teamService.updateTeam(team);
+        return ResultUtils.success(b);
+    }
+
+    @AuthCheck(mustRole = "admin")
+    @PostMapping("/delete")
+    public BaseResponse<Boolean> deleteTeam(@RequestBody DeleteRequest deleteRequest) {
+        if (deleteRequest == null || deleteRequest.getId() == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        boolean b = teamService.deleteTeam(deleteRequest);
+        return ResultUtils.success(b);
+    }
+
+    @PostMapping("/chart/regen")
+    public BaseResponse<BIResponse> regenChart(@RequestBody ChartRegenRequest chartRegenRequest,
+                                               HttpServletRequest request) {
+        if (chartRegenRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        BIResponse biResponse = chartService.regenChartByAsyncMqFromTeam(chartRegenRequest, request);
+        return ResultUtils.success(biResponse);
     }
 
 }

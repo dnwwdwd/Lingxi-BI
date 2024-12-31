@@ -3,6 +3,7 @@ package com.hjj.lingxibi.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hjj.lingxibi.annotation.AuthCheck;
 import com.hjj.lingxibi.common.DeleteRequest;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.constant.CommonConstant;
@@ -11,9 +12,11 @@ import com.hjj.lingxibi.mapper.TeamMapper;
 import com.hjj.lingxibi.model.dto.team.TeamAddRequest;
 import com.hjj.lingxibi.model.dto.team.TeamQueryRequest;
 import com.hjj.lingxibi.model.entity.Team;
+import com.hjj.lingxibi.model.entity.TeamChart;
 import com.hjj.lingxibi.model.entity.TeamUser;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.TeamVO;
+import com.hjj.lingxibi.service.TeamChartService;
 import com.hjj.lingxibi.service.TeamService;
 import com.hjj.lingxibi.service.TeamUserService;
 import com.hjj.lingxibi.service.UserService;
@@ -23,8 +26,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import javax.annotation.Resource;
+import javax.annotation.Tainted;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,6 +48,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
 
     @Resource
     private TeamUserService teamUserService;
+
+    @Resource
+    private TeamChartService teamChartService;
 
     @Override
     public boolean addTeam(TeamAddRequest teamAddRequest, HttpServletRequest request) {
@@ -76,22 +84,26 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
-    public boolean deleteTeam(DeleteRequest deleteRequest, HttpServletRequest request) {
+    @Transactional(rollbackFor = Exception.class)
+    public boolean deleteTeam(DeleteRequest deleteRequest) {
         Long teamId = deleteRequest.getId();
         Team team = this.getById(teamId);
         if (team == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍不存在");
         }
-        if (!userService.isAdmin(request)) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "非管理员无权限删除");
-        }
-        boolean b = this.removeById(teamId);
-        return b;
+        QueryWrapper<TeamChart> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("teamId", teamId);
+        boolean b1 = teamChartService.remove(queryWrapper);
+        QueryWrapper<TeamUser> teamUserQueryWrapper = new QueryWrapper<>();
+        teamUserQueryWrapper.eq("teamId", teamId);
+        boolean b2 = teamUserService.remove(teamUserQueryWrapper);
+        boolean b3 = this.removeById(teamId);
+        return b1 && b2 && b3;
     }
 
     @Override
     public Page<TeamVO> listTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
-        String searchParam = teamQueryRequest.getSearchParam();
+        String searchParam = teamQueryRequest.getSearchParams();
         long current = teamQueryRequest.getCurrent();
         long pageSize = teamQueryRequest.getPageSize();
         String sortField = teamQueryRequest.getSortField();
@@ -170,8 +182,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
-    public Page<TeamVO> listMyJoinedTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
-        String searchParam = teamQueryRequest.getSearchParam();
+    public Page<TeamVO> pageMyJoinedTeam(TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
+        String searchParam = teamQueryRequest.getSearchParams();
         long current = teamQueryRequest.getCurrent();
         long pageSize = teamQueryRequest.getPageSize();
         String sortField = teamQueryRequest.getSortField();
@@ -194,6 +206,34 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         return teamVOPage;
     }
 
+    @Override
+    public List<Team> listAllMyJoinedTeam(HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+        QueryWrapper<TeamUser> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userId", userId);
+        List<TeamUser> teamUsers = teamUserService.list(queryWrapper);
+        List<Long> teamIds = teamUsers.stream().map(TeamUser::getTeamId).collect(Collectors.toList());
+        return this.listByIds(teamIds);
+    }
+
+    @Override
+    public Page<Team> pageTeam(TeamQueryRequest teamQueryRequest) {
+        String searchParams = teamQueryRequest.getSearchParams();
+        long current = teamQueryRequest.getCurrent();
+        long pageSize = teamQueryRequest.getPageSize();
+        QueryWrapper<Team> queryWrapper = new QueryWrapper<>();
+        queryWrapper.like(StringUtils.isNotEmpty(searchParams), "name", searchParams);
+        queryWrapper.like(StringUtils.isNotEmpty(searchParams), "description", searchParams);
+        Page<Team> teamPage = this.page(new Page<>(current, pageSize), queryWrapper);
+        return teamPage;
+    }
+
+    @Override
+    public Boolean updateTeam(Team team) {
+        return this.updateById(team);
+    }
+
     private boolean isInTeam(Team team, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
@@ -213,6 +253,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             return teamVO;
         }).collect(Collectors.toList());
     }
+
 
 }
 

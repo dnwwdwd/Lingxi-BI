@@ -62,6 +62,8 @@ public class LoginUserVO implements Serializable {
      */
     private boolean isSignIn;
 
+    private Integer generatingCount;
+
     public void setIsSignIn(boolean isSignIn) {
         this.isSignIn = isSignIn;
     }

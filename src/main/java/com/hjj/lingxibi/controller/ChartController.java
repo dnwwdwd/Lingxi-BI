@@ -9,8 +9,10 @@ import com.hjj.lingxibi.common.ResultUtils;
 import com.hjj.lingxibi.constant.UserConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.exception.ThrowUtils;
-import com.hjj.lingxibi.manager.SSEManager;
-import com.hjj.lingxibi.model.dto.chart.*;
+import com.hjj.lingxibi.model.dto.chart.ChartAddRequest;
+import com.hjj.lingxibi.model.dto.chart.ChartQueryRequest;
+import com.hjj.lingxibi.model.dto.chart.ChartRegenRequest;
+import com.hjj.lingxibi.model.dto.chart.GenChartByAIRequest;
 import com.hjj.lingxibi.model.dto.team_chart.ChartAddToTeamRequest;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.model.entity.User;
@@ -24,7 +26,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
 
 /**
  * 图表接口
@@ -70,43 +71,29 @@ public class ChartController {
      * @return
      */
     @PostMapping("/delete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> deleteChart(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User user = userService.getLoginUser(request);
-        long id = deleteRequest.getId();
-        // 判断是否存在
-        Chart oldChart = chartService.getById(id);
-        ThrowUtils.throwIf(oldChart == null, ErrorCode.NOT_FOUND_ERROR);
-        // 仅本人或管理员可删除
-        if (!oldChart.getUserId().equals(user.getId()) && !userService.isAdmin(request)) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
-        boolean b = chartService.removeById(id);
+        boolean b = chartService.deleteChart(deleteRequest, request);
         return ResultUtils.success(b);
     }
 
     /**
      * 更新（仅管理员）
      *
-     * @param chartUpdateRequest
+     * @param chart
      * @return
      */
     @PostMapping("/update")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Boolean> updateChart(@RequestBody ChartUpdateRequest chartUpdateRequest) {
-        if (chartUpdateRequest == null || chartUpdateRequest.getId() <= 0) {
+    public BaseResponse<Boolean> updateChartByAdmin(@RequestBody Chart chart) {
+        if (chart == null || chart.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Chart chart = new Chart();
-        BeanUtils.copyProperties(chartUpdateRequest, chart);
-        long id = chartUpdateRequest.getId();
-        // 判断是否存在
-        Chart oldChart = chartService.getById(id);
-        ThrowUtils.throwIf(oldChart == null, ErrorCode.NOT_FOUND_ERROR);
-        boolean result = chartService.updateById(chart);
-        return ResultUtils.success(result);
+        boolean b = chartService.updateChartByAdmin(chart);
+        return ResultUtils.success(b);
     }
 
     /**
@@ -392,15 +379,14 @@ public class ChartController {
      * @param request
      * @return
      */
-    @PostMapping("/list/page")
-    public BaseResponse<Page<Chart>> listChartByPage(@RequestBody ChartQueryRequest chartQueryRequest,
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    @PostMapping("/page")
+    public BaseResponse<Page<Chart>> pageChart(@RequestBody ChartQueryRequest chartQueryRequest,
                                                      HttpServletRequest request) {
-        long current = chartQueryRequest.getCurrent();
-        long size = chartQueryRequest.getPageSize();
-        // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
-        Page<Chart> chartPage = chartService.page(new Page<>(current, size),
-                chartService.getQueryWrapper(chartQueryRequest));
+        if (chartQueryRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Page<Chart> chartPage = chartService.pageChart(chartQueryRequest);
         return ResultUtils.success(chartPage);
     }
 
@@ -435,33 +421,6 @@ public class ChartController {
     // endregion
 
     /**
-     * 编辑（用户）
-     *
-     * @param chartEditRequest
-     * @param request
-     * @return
-     */
-    @PostMapping("/edit")
-    public BaseResponse<Boolean> editChart(@RequestBody ChartEditRequest chartEditRequest, HttpServletRequest request) {
-        if (chartEditRequest == null || chartEditRequest.getId() <= 0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-        }
-        Chart chart = new Chart();
-        BeanUtils.copyProperties(chartEditRequest, chart);
-        User loginUser = userService.getLoginUser(request);
-        long id = chartEditRequest.getId();
-        // 判断是否存在
-        Chart oldChart = chartService.getById(id);
-        ThrowUtils.throwIf(oldChart == null, ErrorCode.NOT_FOUND_ERROR);
-        // 仅本人或管理员可编辑
-        if (!oldChart.getUserId().equals(loginUser.getId()) && !userService.isAdmin(loginUser)) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
-        boolean result = chartService.updateById(chart);
-        return ResultUtils.success(result);
-    }
-
-    /**
      * 修改图表重新生成
      */
     @PostMapping("/regen")
@@ -479,6 +438,18 @@ public class ChartController {
     }
 
     /**
+     * 修改图表重新生成
+     */
+    @PostMapping("/regen/by/admin")
+    public BaseResponse<Boolean> reGenChartByAsyncMqAdmin(@RequestBody ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
+        if (chartRegenRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "图表不存在");
+        }
+        Boolean b = chartService.regenChartByAsyncMqAdmin(chartRegenRequest, request);
+        return ResultUtils.success(b);
+    }
+
+    /**
      * 按关键词搜索我的图表（MySQL 实现）
      */
     @PostMapping("/my/search/page")
@@ -492,14 +463,13 @@ public class ChartController {
         return ResultUtils.success(page);
     }
 
-    @PostMapping("/add/to/team")
+    @PostMapping("/add/team")
     public BaseResponse<Boolean> addChartToTeam(@RequestBody ChartAddToTeamRequest chartAddToTeamRequest, HttpServletRequest request) {
         if (chartAddToTeamRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         boolean b = chartService.addChartToTeam(chartAddToTeamRequest, request);
         return ResultUtils.success(b);
-
     }
 
 }

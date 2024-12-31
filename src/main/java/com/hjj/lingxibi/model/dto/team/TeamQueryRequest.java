@@ -8,6 +8,6 @@ import java.io.Serializable;
 @Data
 public class TeamQueryRequest extends PageRequest implements Serializable {
 
-    private String searchParam;
+    private String searchParams;
 
 }

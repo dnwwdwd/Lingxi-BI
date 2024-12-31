@@ -31,5 +31,10 @@ public class ChartRegenRequest implements Serializable {
      */
     private String chartType;
 
+    /**
+     * 队伍id
+     */
+    private Long teamId;
+
     private static final long serialVersionUID = 1L;
 }

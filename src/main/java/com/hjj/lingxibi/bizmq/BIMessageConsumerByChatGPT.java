@@ -67,6 +67,7 @@ public class BIMessageConsumerByChatGPT {
             log.info("消息为空拒绝接收");
         }
         Chart chart = chartService.getById(chartId);
+        User user = userService.getById(chart.getUserId());
         if (chart == null) {
             try {
                 channel.basicNack(deliveryTag, false, false);
@@ -90,7 +91,8 @@ public class BIMessageConsumerByChatGPT {
                 log.info("消息拒绝失败：", e);
                 throw new RuntimeException(e);
             }
-            chartService.handleChartUpdateError(chart.getId(), teamId, "更新图表执行状态失败");
+            chartService.handleChartUpdateError(chart.getId(),"更新图表执行状态失败");
+            userService.deductUserGeneratIngCount(user);
             return;
         }
         String userInput = ChartUtil.buildUserInput(chart);
@@ -100,7 +102,8 @@ public class BIMessageConsumerByChatGPT {
         try {
             response = AIUtil.invokeChatGPT(userInput, chartId);
         } catch (Exception e) {
-            chartService.handleChartUpdateError(chartId, teamId,"调用ChatGPT失败");
+            chartService.handleChartUpdateError(chartId,  "调用ChatGPT失败");
+            userService.deductUserGeneratIngCount(user);
             MQUtil.rejectMsgAndRequeue(channel, deliveryTag, chartId);
             return;
         }
@@ -116,33 +119,22 @@ public class BIMessageConsumerByChatGPT {
         log.info("图表Id为" + chartId + "生成的Echarts代码是否合法：" + isValid);
         // 生成的 Echarts 代码不合法
         if (!isValid) {
-            chartService.handleChartUpdateError(chartId, teamId,"生成的 Echarts 代码不合法");
+            chartService.handleChartUpdateError(chartId, "生成的 Echarts 代码不合法");
+            userService.deductUserGeneratIngCount(user);
             return;
         }
         // 生成的 Echarts 代码合法则将生成的Echarts代码进行增强，拓展下载图表功能
         genChart = ChartUtil.strengthenGenChart(genChart);
         // 更新图表状态为成功
-        chartService.handleChartUpdateSuccess(chartId, teamId, genChart, genResult);
-
+        chartService.handleChartUpdateSuccess(chartId, genChart, genResult);
         Long userId = chart.getUserId();
-
         // 扣除用户积分（调用一次 AI 服务，扣除5个积分）
-        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
-        userUpdateWrapper.eq("id", userId);
-        userUpdateWrapper.setSql("score = score - 5");
-        boolean updateScoreResult = userService.update(userUpdateWrapper);
-        if (!updateScoreResult) {
-            log.error("用户：{} 积分扣除失败", userId);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR);
-        }
-        log.info("用户：{} 积分扣除成功", userId);
+        userService.deductUserScore(userId);
 
-        // 将生成的图表推送到SSE（chart-update）
-        sseManager.sendChartUpdate(userId, chartService.getById(chartId));
-
+        // 将生成的图表推送到SSE
+        sseManager.sendChartUpdate(userId, chart);
         if (teamId != null) {
-            // 将生成的图表推送到SSE（team-chart-update）
-            sseManager.sendTeamChartUpdate(teamId, chartService.getById(chartId));
+            sseManager.sendTeamChartUpdate(teamId, chart);
         }
 
         // 如果任务执行成功，手动执行ack

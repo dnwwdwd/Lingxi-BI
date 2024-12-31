@@ -4,10 +4,12 @@ package com.hjj.lingxibi.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.constant.CommonConstant;
 import com.hjj.lingxibi.constant.RedisConstant;
+import com.hjj.lingxibi.constant.UserConstant;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.mapper.UserMapper;
 import com.hjj.lingxibi.model.dto.user.UserQueryRequest;
@@ -23,6 +25,9 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -226,8 +231,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求参数为空");
         }
         Long id = userQueryRequest.getId();
-        String unionId = userQueryRequest.getUnionId();
-        String mpOpenId = userQueryRequest.getMpOpenId();
         String userName = userQueryRequest.getUserName();
         String userProfile = userQueryRequest.getUserProfile();
         String userRole = userQueryRequest.getUserRole();
@@ -235,8 +238,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String sortOrder = userQueryRequest.getSortOrder();
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq(id != null, "id", id);
-        queryWrapper.eq(StringUtils.isNotBlank(unionId), "unionId", unionId);
-        queryWrapper.eq(StringUtils.isNotBlank(mpOpenId), "mpOpenId", mpOpenId);
         queryWrapper.eq(StringUtils.isNotBlank(userRole), "userRole", userRole);
         queryWrapper.like(StringUtils.isNotBlank(userProfile), "userProfile", userProfile);
         queryWrapper.like(StringUtils.isNotBlank(userName), "userName", userName);
@@ -283,4 +284,109 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         return this.getUserVO(user);
     }
+
+    @Override
+    public synchronized void deductUserGeneratIngCount(User user) {
+        Long userId = user.getId();
+        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
+        userUpdateWrapper.eq("id", userId);
+        userUpdateWrapper.setSql("generatingCount = generatingCount - 1");
+        boolean updateScoreResult = this.update(userUpdateWrapper);
+        if (!updateScoreResult) {
+            log.error("用户: {} 生成图表数量扣除失败", userId);
+        }
+    }
+
+    @Override
+    public synchronized void increaseUserGeneratIngCount(User user) {
+        Long userId = user.getId();
+        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
+        userUpdateWrapper.eq("id", userId);
+        userUpdateWrapper.setSql("generatingCount = generatingCount + 1");
+        boolean updateScoreResult = this.update(userUpdateWrapper);
+        if (!updateScoreResult) {
+            log.error("用户: {} 生成图表数量增加失败", userId);
+        }
+    }
+
+    @Override
+    public Boolean canGenerateChart(User user) {
+        return user.getGeneratingCount() <= 3;
+    }
+
+    @Override
+    public Page<User> pageUser(UserQueryRequest userQueryRequest) {
+        String searchParams = userQueryRequest.getSearchParams();
+        long current = userQueryRequest.getCurrent();
+        long pageSize = userQueryRequest.getPageSize();
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.and(StringUtils.isNotEmpty(searchParams), q1 -> q1.like("userName", searchParams)
+                .or(StringUtils.isNotEmpty(searchParams), q2 -> q2.like("userRole", searchParams)));
+        Page<User> userPage = this.page(new Page<>(current, pageSize), queryWrapper);
+        return userPage;
+    }
+
+    @Override
+    public Boolean updateUser(User user, HttpServletRequest request) {
+        Long userId = user.getId();
+        User loginUser = getLoginUser(request);
+        User oldUser = this.getById(userId);
+        if (UserConstant.ADMIN_ROLE.equals(user.getUserRole())) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "管理员用户不可修改");
+        }
+        if (!loginUser.getId().equals(userId) || !this.isAdmin(request)) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限修改");
+        }
+        if (!oldUser.getUserAccount().equals(user.getUserAccount())) {
+            String userAccount = user.getUserAccount();
+            if (this.count(new QueryWrapper<User>().eq("userAccount", userAccount)) > 0) {
+                throw new BusinessException(ErrorCode.OPERATION_ERROR, "用户名已存在");
+            }
+        }
+        if (StringUtils.isNotEmpty(user.getUserPassword()) && !oldUser.getUserPassword().equals(user.getUserPassword())) {
+            user.setUserPassword(DigestUtils.md5DigestAsHex((SALT + user.getUserPassword()).getBytes()));
+        }
+        return this.updateById(user);
+    }
+
+    @Override
+    public boolean addUser(User user) {
+        String userAccount = user.getUserAccount();
+        String userPassword = user.getUserPassword();
+        String userName = user.getUserName();
+        String userAvatar = user.getUserAvatar();
+        String userRole = user.getUserRole();
+        Integer score = user.getScore();
+        if (StringUtils.isAnyBlank(userAccount, userPassword, userName, userAvatar, userRole)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+        }
+        if (score == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "积分不能为空");
+        }
+        if (this.count(new QueryWrapper<User>().eq("userAccount", userAccount)) > 0) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "用户名已存在");
+        }
+        user.setGeneratingCount(0);
+        // 2. 加密
+        userPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+        user.setUserPassword(userPassword);
+        boolean b = this.save(user);
+        return b;
+    }
+
+    @Override
+    public boolean deleteUser(long userId, HttpServletRequest request) {
+        User loginUser = this.getLoginUser(request);
+        if (loginUser.getId() == userId) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能删除自己");
+        }
+        User user = this.getById(userId);
+        if (UserConstant.ADMIN_ROLE.equals(user.getUserRole())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "不能删除管理员");
+        }
+        boolean b = this.removeById(userId);
+        return b;
+
+    }
+
 }

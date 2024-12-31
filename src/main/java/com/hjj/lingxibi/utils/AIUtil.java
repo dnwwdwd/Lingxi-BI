@@ -168,7 +168,7 @@ public class AIUtil {
     public static String extractJsCode(String content) {
         String[] split = content.split("【【【【【【");
         if (split.length >= 3) {
-            return split[1];
+            return split[1].trim();
         }
         return "";
     }
@@ -176,7 +176,7 @@ public class AIUtil {
     public static String extractAnalysis(String content) {
         String[] split = content.split("【【【【【【");
         if (split.length >= 3) {
-            return split[2];
+            return split[2].trim();
         }
         return "";
     }

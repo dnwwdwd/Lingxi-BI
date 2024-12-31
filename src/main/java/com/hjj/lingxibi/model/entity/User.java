@@ -39,6 +39,8 @@ public class User implements Serializable {
      */
     private String userAvatar;
 
+    private Integer generatingCount;
+
     /**
      * 用户角色：user/admin/ban
      */

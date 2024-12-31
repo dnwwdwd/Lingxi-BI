@@ -132,6 +132,4 @@ public class ChartUtil {
         return echartsCode.replace("'", "\"").trim().
                 replaceAll("\\s*\"\\s*(\\w+)\\s*\"\\s*:", "\"$1\":");
     }
-
-
 }
