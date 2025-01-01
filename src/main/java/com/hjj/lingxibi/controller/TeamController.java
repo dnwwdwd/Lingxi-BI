@@ -18,6 +18,9 @@ import com.hjj.lingxibi.model.vo.BIResponse;
 import com.hjj.lingxibi.model.vo.TeamVO;
 import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.TeamService;
+import com.hjj.lingxibi.service.UserService;
+import com.hjj.lingxibi.service.impl.UserServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -33,6 +36,12 @@ public class TeamController {
 
     @Resource
     private ChartService chartService;
+
+    @Resource
+    private UserService userService;
+
+    @Autowired
+    private UserServiceImpl userServiceImpl;
 
     @PostMapping("/add")
     public BaseResponse<Boolean> addTeam(@RequestBody TeamAddRequest teamAddRequest, HttpServletRequest request) {
@@ -129,6 +138,9 @@ public class TeamController {
                                                HttpServletRequest request) {
         if (chartRegenRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        if (!userService.userHasScore(request)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
         }
         BIResponse biResponse = chartService.regenChartByAsyncMqFromTeam(chartRegenRequest, request);
         return ResultUtils.success(biResponse);
