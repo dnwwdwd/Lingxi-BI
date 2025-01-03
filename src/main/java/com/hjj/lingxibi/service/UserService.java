@@ -126,7 +126,7 @@ public interface UserService extends IService<User> {
 
     Boolean canGenerateChart(User user);
 
-    Page<User> pageUser(UserQueryRequest userQueryRequest);
+    Page<User> pageUser(UserQueryRequest userQueryRequest, HttpServletRequest request);
 
     Boolean updateUser(User user, HttpServletRequest request);
 

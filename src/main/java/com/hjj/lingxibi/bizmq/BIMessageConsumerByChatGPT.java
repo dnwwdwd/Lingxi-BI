@@ -67,6 +67,15 @@ public class BIMessageConsumerByChatGPT {
             log.info("消息为空拒绝接收");
         }
         Chart chart = chartService.getById(chartId);
+        if (chart.getStatus().equals("succeed")) {
+            try {
+                channel.basicAck(deliveryTag, false);
+            } catch (IOException e) {
+                log.info("消息应答失败：", e);
+                throw new RuntimeException(e);
+            }
+            return;
+        }
         User user = userService.getById(chart.getUserId());
         if (chart == null) {
             try {

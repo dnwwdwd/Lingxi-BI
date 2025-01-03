@@ -386,7 +386,7 @@ public class ChartController {
         if (chartQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Page<Chart> chartPage = chartService.pageChart(chartQueryRequest, request);
+        Page<Chart> chartPage = chartService.pageChart(chartQueryRequest);
         return ResultUtils.success(chartPage);
     }
 

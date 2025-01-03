@@ -315,13 +315,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Page<User> pageUser(UserQueryRequest userQueryRequest) {
+    public Page<User> pageUser(UserQueryRequest userQueryRequest, HttpServletRequest request) {
+        User loginUser = this.getLoginUser(request);
+        Long userId = loginUser.getId();
         String searchParams = userQueryRequest.getSearchParams();
         long current = userQueryRequest.getCurrent();
         long pageSize = userQueryRequest.getPageSize();
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.and(StringUtils.isNotEmpty(searchParams), q1 -> q1.like("userName", searchParams)
                 .or(StringUtils.isNotEmpty(searchParams), q2 -> q2.like("userRole", searchParams)));
+        queryWrapper.ne("userId", userId);
         Page<User> userPage = this.page(new Page<>(current, pageSize), queryWrapper);
         return userPage;
     }

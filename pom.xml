@@ -157,6 +157,12 @@
             <artifactId>oapi-java-sdk</artifactId>
             <version>release-V4-2.0.2</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/com.aliyun.oss/aliyun-sdk-oss -->
+        <dependency>
+            <groupId>com.aliyun.oss</groupId>
+            <artifactId>aliyun-sdk-oss</artifactId>
+            <version>3.17.2</version>
+        </dependency>
     </dependencies>
 
     <build>

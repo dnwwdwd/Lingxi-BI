@@ -299,11 +299,11 @@ public class UserController {
 
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @PostMapping("/page")
-    public BaseResponse<Page<User>> pageUser(@RequestBody UserQueryRequest userQueryRequest) {
+    public BaseResponse<Page<User>> pageUser(@RequestBody UserQueryRequest userQueryRequest, HttpServletRequest request) {
         if (userQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Page<User> userPage = userService.pageUser(userQueryRequest);
+        Page<User> userPage = userService.pageUser(userQueryRequest, request);
         return ResultUtils.success(userPage);
     }
 

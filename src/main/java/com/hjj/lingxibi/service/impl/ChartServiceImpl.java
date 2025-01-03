@@ -564,9 +564,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     @Override
-    public Page<Chart> pageChart(ChartQueryRequest chartQueryRequest, HttpServletRequest request) {
-        User user = userService.getLoginUser(request);
-        long userId = user.getId();
+    public Page<Chart> pageChart(ChartQueryRequest chartQueryRequest) {
         long current = chartQueryRequest.getCurrent();
         long size = chartQueryRequest.getPageSize();
         String searchParams = chartQueryRequest.getSearchParams();
@@ -574,7 +572,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
         QueryWrapper<Chart> queryWrapper = this.getQueryWrapper(chartQueryRequest);
         queryWrapper.like(StringUtils.isNotEmpty(searchParams), "name", searchParams).or(StringUtils.isNotEmpty(searchParams), wrapper -> wrapper.like("status", searchParams));
-        queryWrapper.ne("userId", userId);
         queryWrapper.orderBy(true, true, "updateTime");
         Page<Chart> chartPage = this.page(new Page<>(current, size), queryWrapper);
         return chartPage;
