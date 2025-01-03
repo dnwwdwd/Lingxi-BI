@@ -121,7 +121,7 @@ public interface ChartService extends IService<Chart> {
      * @param chartQueryRequest
      * @return
      */
-    Page<Chart> pageChart(ChartQueryRequest chartQueryRequest);
+    Page<Chart> pageChart(ChartQueryRequest chartQueryRequest, HttpServletRequest request);
 
     /**
      * 重新生成图表（管理员）
