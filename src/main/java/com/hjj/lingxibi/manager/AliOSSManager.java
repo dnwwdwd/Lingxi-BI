@@ -42,7 +42,7 @@ public class AliOSSManager {
         // 文件校验
         long size = multipartFile.getSize();
         if (size > 5 * 1024 * 1024L) {
-            throw new RuntimeException("文件大小不能超过10M");
+            throw new RuntimeException("文件大小不能超过5M");
         }
         String fileSuffix = FileUtil.getSuffix(multipartFile.getOriginalFilename());
         final List<String> validFileSuffixList = Arrays.asList("jpg", "png", "jpeg", "gif", "bmp");

@@ -16,7 +16,7 @@ public class TeamAddRequest implements Serializable {
     /**
      * 队伍图片
      */
-    private List<String> imgs;
+    private String imgUrl;
 
     /**
      * 队伍描述

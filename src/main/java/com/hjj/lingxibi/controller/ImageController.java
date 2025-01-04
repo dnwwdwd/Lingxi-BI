@@ -5,7 +5,6 @@ import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.common.ResultUtils;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.manager.AliOSSManager;
-import com.hjj.lingxibi.service.UserService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;

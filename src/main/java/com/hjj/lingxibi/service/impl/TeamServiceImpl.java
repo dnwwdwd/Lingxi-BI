@@ -53,15 +53,16 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     private TeamChartService teamChartService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean addTeam(TeamAddRequest teamAddRequest, HttpServletRequest request) {
         String name = teamAddRequest.getName();
-        List<String> imgs = teamAddRequest.getImgs();
+        String imgUrl = teamAddRequest.getImgUrl();
         String description = teamAddRequest.getDescription();
         Integer maxNum = teamAddRequest.getMaxNum();
         if (StringUtils.isEmpty(name)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍名称不能为空");
         }
-        if (CollectionUtils.isEmpty(imgs)) {
+        if (StringUtils.isEmpty(imgUrl)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "图片不能为空");
         }
         if (StringUtils.isEmpty(description) || description.length() > 100) {
@@ -168,7 +169,10 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             queryWrapper.eq("userId", userId);
             boolean b1 = teamUserService.remove(queryWrapper);
             boolean b2 = this.removeById(teamId);
-            return b1 && b2;
+            QueryWrapper<TeamChart> teamChartQueryWrapper = new QueryWrapper<>();
+            teamChartQueryWrapper.eq("teamId", teamId);
+            boolean b3 = teamChartService.remove(teamChartQueryWrapper);
+            return b1 && b2 && b3;
         }
         queryWrapper.orderBy(true, true, "createTime").apply("limit 2");
         TeamUser teamUser = teamUserService.list(queryWrapper).get(1);

@@ -146,4 +146,13 @@ public class TeamController {
         return ResultUtils.success(biResponse);
     }
 
+    @GetMapping("/get")
+    public BaseResponse<Team> getTeamById(Long id) {
+        if (id == null || id < 1) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Team team = teamService.getById(id);
+        return ResultUtils.success(team);
+    }
+
 }

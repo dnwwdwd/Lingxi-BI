@@ -9,6 +9,7 @@ import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.model.entity.Chart;
 import com.hjj.lingxibi.service.ChartService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +32,9 @@ public class ChartDealJob {
     public void dealWaitingChart() {
         log.info("定时任务执行");
         List<Chart> charts = chartService.list(new QueryWrapper<Chart>().eq("status", "waiting"));
+        if (CollectionUtils.isEmpty(charts)) {
+            return;
+        }
         List<Long> chartIds = charts.stream().map(Chart::getId).collect(Collectors.toList());
         for (long chartId : chartIds) {
             MQMessage mqMessage = MQMessage.builder().chartId(chartId).build();
