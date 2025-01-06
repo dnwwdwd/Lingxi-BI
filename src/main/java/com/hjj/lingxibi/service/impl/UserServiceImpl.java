@@ -342,7 +342,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (UserConstant.ADMIN_ROLE.equals(user.getUserRole())) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "管理员用户不可修改");
         }
-        if (!loginUser.getId().equals(userId) || !this.isAdmin(request)) {
+        if (!this.isAdmin(request) && !loginUser.getId().equals(userId)) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限修改");
         }
         if (!oldUser.getUserAccount().equals(user.getUserAccount())) {
