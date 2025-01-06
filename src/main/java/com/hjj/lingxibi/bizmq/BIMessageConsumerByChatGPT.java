@@ -1,7 +1,6 @@
 package com.hjj.lingxibi.bizmq;
 
 import cn.hutool.json.JSONUtil;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.hjj.lingxibi.common.ErrorCode;
 import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.manager.SSEManager;
@@ -55,6 +54,7 @@ public class BIMessageConsumerByChatGPT {
         MQMessage mqMessage = JSONUtil.toBean(message, MQMessage.class);
         Long chartId = mqMessage.getChartId();
         Long teamId = mqMessage.getTeamId();
+        Long invokeUserId = mqMessage.getInvokeUserId();
 
         if (chartId == null || chartId < 1) {
             // 如果失败，消息拒绝
@@ -76,7 +76,7 @@ public class BIMessageConsumerByChatGPT {
             }
             return;
         }
-        User user = userService.getById(chart.getUserId());
+        Long userId = chart.getUserId();
         if (chart == null) {
             try {
                 channel.basicNack(deliveryTag, false, false);
@@ -101,7 +101,7 @@ public class BIMessageConsumerByChatGPT {
                 throw new RuntimeException(e);
             }
             chartService.handleChartUpdateError(chart.getId(),"更新图表执行状态失败");
-            userService.deductUserGeneratIngCount(user);
+            deductUserGeneratIngCount(userId, invokeUserId);
             return;
         }
         String userInput = ChartUtil.buildUserInput(chart);
@@ -112,7 +112,7 @@ public class BIMessageConsumerByChatGPT {
             response = AIUtil.invokeChatGPT(userInput, chartId);
         } catch (Exception e) {
             chartService.handleChartUpdateError(chartId,  "调用ChatGPT失败");
-            userService.deductUserGeneratIngCount(user);
+            deductUserGeneratIngCount(userId, invokeUserId);
             MQUtil.rejectMsgAndRequeue(channel, deliveryTag, chartId);
             return;
         }
@@ -129,17 +129,17 @@ public class BIMessageConsumerByChatGPT {
         // 生成的 Echarts 代码不合法
         if (!isValid) {
             chartService.handleChartUpdateError(chartId, "生成的 Echarts 代码不合法");
-            userService.deductUserGeneratIngCount(user);
+            deductUserGeneratIngCount(userId, invokeUserId);
             return;
         }
         // 生成的 Echarts 代码合法则将生成的Echarts代码进行增强，拓展下载图表功能
         genChart = ChartUtil.strengthenGenChart(genChart);
+        // 扣除用户正在生成的图表数量
+        deductUserGeneratIngCount(userId, invokeUserId);
         // 更新图表状态为成功
         chartService.handleChartUpdateSuccess(chartId, genChart, genResult);
-        Long userId = chart.getUserId();
         // 扣除用户积分（调用一次 AI 服务，扣除5个积分）
         userService.deductUserScore(userId);
-
         // 将生成的图表推送到SSE
         if (teamId != null) {
             sseManager.sendTeamChartUpdate(teamId, chartService.getById(chartId));
@@ -155,5 +155,14 @@ public class BIMessageConsumerByChatGPT {
             throw new RuntimeException(e);
         }
     }
+
+    private void deductUserGeneratIngCount(Long userId, Long invokeUserId) {
+        if (invokeUserId == null) {
+            userService.deductUserGeneratIngCount(userId);
+        } else {
+            userService.deductUserGeneratIngCount(invokeUserId);
+        }
+    }
+
 
 }

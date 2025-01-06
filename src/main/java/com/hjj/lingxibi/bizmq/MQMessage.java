@@ -13,4 +13,6 @@ public class MQMessage implements Serializable {
 
     private Long teamId;
 
+    private Long invokeUserId;
+
 }

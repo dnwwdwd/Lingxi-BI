@@ -138,9 +138,6 @@ public class TeamController {
         if (chartRegenRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        if (!userService.userHasScore(request)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
-        }
         BIResponse biResponse = chartService.regenChartByAsyncMqFromTeam(chartRegenRequest, request);
         return ResultUtils.success(biResponse);
     }

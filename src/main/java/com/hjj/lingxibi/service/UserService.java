@@ -114,15 +114,15 @@ public interface UserService extends IService<User> {
     /**
      * 验证用户积分是否大于 5
      */
-    boolean userHasScore(HttpServletRequest request);
+    boolean userHasScore(User user);
 
     void deductUserScore(Long userId);
 
     UserVO getUserVOById(Long id);
 
-    void deductUserGeneratIngCount(User user);
+    void deductUserGeneratIngCount(Long userId);
 
-    void increaseUserGeneratIngCount(User user);
+    void increaseUserGeneratIngCount(Long userId);
 
     Boolean canGenerateChart(User user);
 
@@ -133,4 +133,6 @@ public interface UserService extends IService<User> {
     boolean addUser(User user);
 
     boolean deleteUser(long userId, HttpServletRequest request);
+
+    boolean signIn(HttpServletRequest request);
 }

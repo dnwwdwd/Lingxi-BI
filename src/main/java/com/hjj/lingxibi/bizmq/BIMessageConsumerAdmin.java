@@ -6,7 +6,6 @@ import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.manager.SSEManager;
 import com.hjj.lingxibi.model.dto.ai.ChatGPTResponse;
 import com.hjj.lingxibi.model.entity.Chart;
-import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.AIUtil;

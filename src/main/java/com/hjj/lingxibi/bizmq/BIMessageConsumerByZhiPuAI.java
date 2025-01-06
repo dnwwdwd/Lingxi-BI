@@ -63,6 +63,7 @@ public class BIMessageConsumerByZhiPuAI {
         MQMessage mqMessage = JSONUtil.toBean(message, MQMessage.class);
         Long chartId = mqMessage.getChartId();
         Long teamId = mqMessage.getTeamId();
+        Long invokeUserId = mqMessage.getInvokeUserId();
 
         if (chartId == null || chartId < 1) {
             // 如果失败，消息拒绝
@@ -84,6 +85,7 @@ public class BIMessageConsumerByZhiPuAI {
             }
             return;
         }
+        Long userId = chart.getUserId();
         User user = userService.getById(chart.getUserId());
         if (chart == null) {
             try {
@@ -110,7 +112,7 @@ public class BIMessageConsumerByZhiPuAI {
                 throw new RuntimeException(e);
             }
             chartService.handleChartUpdateError(chart.getId(), "更新图表执行状态失败");
-            userService.deductUserGeneratIngCount(user);
+            deductUserGeneratIngCount(userId, invokeUserId);
             return;
         }
         String userInput = buildUserInput(chart);
@@ -122,7 +124,7 @@ public class BIMessageConsumerByZhiPuAI {
             result = zhiPuAIManager.doChat(chatMessage, chartId);
         } catch (Exception e) {
             chartService.handleChartUpdateError(chart.getId(), "调用智谱AI失败");
-            userService.deductUserGeneratIngCount(user);
+            deductUserGeneratIngCount(userId, invokeUserId);
             log.info("图表Id: {} 调用智谱 AI 失败了", chartId);
             MQUtil.rejectMsgAndRequeue(channel, deliveryTag, chartId);
             return;
@@ -136,18 +138,17 @@ public class BIMessageConsumerByZhiPuAI {
         // 生成的 Echarts 代码不合法
         if (!isValid) {
             chartService.handleChartUpdateError(chartId, "生成的 Echarts 代码不合法");
-            userService.deductUserGeneratIngCount(user);
+            deductUserGeneratIngCount(userId, invokeUserId);
             return;
         }
         // 生成的 Echarts 代码合法则将生成的Echarts代码进行增强，拓展下载图表功能
         genChart = strengthenGenChart(genChart);
+        // 扣除用户正在生成的图表数量
+        deductUserGeneratIngCount(userId, invokeUserId);
         // 更新图表任务状态为成功
         chartService.handleChartUpdateSuccess(chartId, genChart, genResult);
-
-        Long userId = chart.getUserId();
         // 扣除用户积分（调用一次 AI 服务，扣除5个积分）
         userService.deductUserScore(userId);
-
         // 将生成的图表推送到SSE
         if (teamId != null) {
             sseManager.sendTeamChartUpdate(teamId, chartService.getById(chartId));
@@ -163,4 +164,13 @@ public class BIMessageConsumerByZhiPuAI {
             throw new RuntimeException(e);
         }
     }
+
+    private void deductUserGeneratIngCount(Long userId, Long invokeUserId) {
+        if (invokeUserId == null) {
+            userService.deductUserGeneratIngCount(userId);
+        } else {
+            userService.deductUserGeneratIngCount(invokeUserId);
+        }
+    }
+
 }

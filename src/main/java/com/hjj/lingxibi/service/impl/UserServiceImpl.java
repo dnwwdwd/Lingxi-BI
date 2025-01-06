@@ -31,8 +31,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hjj.lingxibi.constant.UserConstant.USER_LOGIN_STATE;
@@ -253,10 +256,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
 
     @Override
-    public boolean userHasScore(HttpServletRequest request) {
-        User loginUser = getLoginUser(request);
-        Long userId = loginUser.getId();
-        User user = getById(userId);
+    public boolean userHasScore(User user) {
+        if (user == null || user.getScore() == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
         Integer score = user.getScore();
         // 积分为空或者小于5，代表用户无积分，返回false
         return score != null && score >= 5;
@@ -286,8 +289,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public synchronized void deductUserGeneratIngCount(User user) {
-        Long userId = user.getId();
+    public synchronized void deductUserGeneratIngCount(Long userId) {
+        User user = this.getById(userId);
+        if (user.getGeneratingCount() == null || user.getGeneratingCount() <= 0) {
+            return;
+        }
         UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
         userUpdateWrapper.eq("id", userId);
         userUpdateWrapper.setSql("generatingCount = generatingCount - 1");
@@ -298,8 +304,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public synchronized void increaseUserGeneratIngCount(User user) {
-        Long userId = user.getId();
+    public synchronized void increaseUserGeneratIngCount(Long userId) {
         UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
         userUpdateWrapper.eq("id", userId);
         userUpdateWrapper.setSql("generatingCount = generatingCount + 1");
@@ -390,6 +395,40 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         boolean b = this.removeById(userId);
         return b;
 
+    }
+
+    @Override
+    public synchronized boolean signIn(HttpServletRequest request) {
+        User loginUser = this.getLoginUser(request);
+        if (loginUser == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        Long userId = loginUser.getId();
+        // 先判断是否已签到过
+        String isSignIn = stringRedisTemplate.opsForValue().get(RedisConstant.USER_SIGN_IN_REDIS_ID + userId);
+        if (!StringUtils.isEmpty(isSignIn) && isSignIn.equals(UserConstant.USER_SIGN_IN)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您今天已签到，请明天再来");
+        }
+        // 计算当前时间至次日零点的秒数
+        LocalDateTime currentDatetime = LocalDateTime.now();
+
+        LocalDateTime nextDayMidnight = currentDatetime.plusDays(1).withHour(0).
+                withMinute(0).withSecond(0).withNano(0);
+        Duration duration = Duration.between(currentDatetime, nextDayMidnight);
+        long seconds = Math.abs(duration.getSeconds());
+        // 将签到信息存入 Redis
+        try {
+            stringRedisTemplate.opsForValue().set(RedisConstant.USER_SIGN_IN_REDIS_ID + userId,
+                    UserConstant.USER_SIGN_IN, seconds, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.info("用户 {} 签到失败", userId, e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "签到失败");
+        }
+        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
+        userUpdateWrapper.eq("id", userId);
+        userUpdateWrapper.setSql("score = score + 20");
+        boolean update = this.update(userUpdateWrapper);
+        return update;
     }
 
 }

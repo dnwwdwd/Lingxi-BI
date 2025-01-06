@@ -33,7 +33,10 @@ import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.TeamChartService;
 import com.hjj.lingxibi.service.TeamService;
 import com.hjj.lingxibi.service.UserService;
-import com.hjj.lingxibi.utils.*;
+import com.hjj.lingxibi.utils.AIUtil;
+import com.hjj.lingxibi.utils.ChartUtil;
+import com.hjj.lingxibi.utils.ExcelUtils;
+import com.hjj.lingxibi.utils.SqlUtils;
 import com.zhipu.oapi.service.v4.model.ChatMessage;
 import com.zhipu.oapi.service.v4.model.ChatMessageRole;
 import lombok.extern.slf4j.Slf4j;
@@ -41,9 +44,8 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
@@ -89,6 +91,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Resource
     private SSEManager sseManager;
+    @Autowired
+    private UserServiceImpl userServiceImpl;
 
     /**
      * 获取查询包装类
@@ -146,8 +150,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!canGenChart) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
         }
+        userService.increaseUserGeneratIngCount(userId);
         // 先校验用户积分是否足够
-        boolean hasScore = userService.userHasScore(request);
+        boolean hasScore = userService.userHasScore(loginUser);
         if (!hasScore) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
         }
@@ -240,8 +245,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!canGenChart) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
         }
+        userService.increaseUserGeneratIngCount(userId);
         // 先校验用户积分是否足够
-        boolean hasScore = userService.userHasScore(request);
+        boolean hasScore = userService.userHasScore(loginUser);
         if (!hasScore) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
         }
@@ -316,8 +322,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!canGenChart) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
         }
+        userService.increaseUserGeneratIngCount(userId);
         // 先校验用户积分是否足够
-        boolean hasScore = userService.userHasScore(request);
+        boolean hasScore = userService.userHasScore(loginUser);
         if (!hasScore) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
         }
@@ -365,9 +372,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
         log.info("用户输入诉求：{}", userInput);
-        // 正在生成图表数量 + 1
-        userService.increaseUserGeneratIngCount(loginUser);
-        //
         String response = null;
         try {
             response = zhiPuAIManager.doChat(new ChatMessage(ChatMessageRole.USER.value(), userInput.toString()));
@@ -390,7 +394,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         }
         genChart = ChartUtil.strengthenGenChart(genChart);
         // 正在生成图表数量 - 1
-        userService.deductUserGeneratIngCount(loginUser);
+        userService.deductUserGeneratIngCount(loginUser.getId());
         // 插入数据到数据库
         Chart chart = new Chart();
         chart.setName(name);
@@ -478,6 +482,24 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     private void trySendMessageByMq(long chartId, long teamId) {
         MQMessage mqMessage = MQMessage.builder().chartId(chartId).teamId(teamId).build();
+        String mqMessageJson = JSONUtil.toJsonStr(mqMessage);
+        try {
+            biMessageProducer.sendMessage(mqMessageJson);
+        } catch (Exception e) {
+            log.error("图表成功保存至数据库，但是消息投递失败");
+            Chart failedChart = new Chart();
+            failedChart.setId(chartId);
+            failedChart.setStatus("failed");
+            boolean b = this.updateById(failedChart);
+            if (!b) {
+                throw new RuntimeException("修改图表状态信息为失败失败了");
+            }
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "MQ 消息发送失败");
+        }
+    }
+
+    private void trySendMessageByMq(long chartId, long teamId, long invokeUserId) {
+        MQMessage mqMessage = MQMessage.builder().chartId(chartId).teamId(teamId).invokeUserId(invokeUserId).build();
         String mqMessageJson = JSONUtil.toJsonStr(mqMessage);
         try {
             biMessageProducer.sendMessage(mqMessageJson);
@@ -631,9 +653,16 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
+        // 判断能否生成图表
         boolean canGenChart = userService.canGenerateChart(loginUser);
         if (!canGenChart) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
+        }
+        userService.increaseUserGeneratIngCount(userId);
+        // 先校验用户积分是否足够
+        boolean hasScore = userService.userHasScore(loginUser);
+        if (!hasScore) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
         }
         // 参数校验
         Long chartId = chartRegenRequest.getId();
@@ -666,7 +695,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (updateResult) {
             log.info("修改后的图表信息初次保存至数据库成功");
             // 初次保存成功，则向MQ投递消息
-            trySendMessageByMq(chartId, teamId);
+            trySendMessageByMq(chartId, teamId, userId);
             BIResponse biResponse = new BIResponse();
             biResponse.setChartId(chartId);
             return biResponse;

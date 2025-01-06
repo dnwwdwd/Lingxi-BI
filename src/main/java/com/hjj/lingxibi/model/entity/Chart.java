@@ -1,7 +1,6 @@
 package com.hjj.lingxibi.model.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
-import lombok.Builder;
 import lombok.Data;
 import lombok.ToString;
 

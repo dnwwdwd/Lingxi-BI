@@ -265,36 +265,8 @@ public class UserController {
 
     @PostMapping("/sign/in")
     public BaseResponse<Boolean> signIn(HttpServletRequest request) {
-        User loginUser = userService.getLoginUser(request);
-        if (loginUser == null) {
-            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
-        }
-        Long userId = loginUser.getId();
-        // 先判断是否已签到过
-        String isSignIn = stringRedisTemplate.opsForValue().get(RedisConstant.USER_SIGN_IN_REDIS_ID + userId);
-        if (!StringUtils.isEmpty(isSignIn) && isSignIn.equals(UserConstant.USER_SIGN_IN)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您今天已签到，请明天再来");
-        }
-        // 计算当前时间至次日零点的秒数
-        LocalDateTime currentDatetime = LocalDateTime.now();
-
-        LocalDateTime nextDayMidnight = currentDatetime.plusDays(1).withHour(0).
-                withMinute(0).withSecond(0).withNano(0);
-        Duration duration = Duration.between(currentDatetime, nextDayMidnight);
-        long seconds = Math.abs(duration.getSeconds());
-        // 将签到信息存入 Redis
-        try {
-            stringRedisTemplate.opsForValue().set(RedisConstant.USER_SIGN_IN_REDIS_ID + userId,
-                    UserConstant.USER_SIGN_IN, seconds, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            log.info("用户 {} 签到失败", userId, e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "签到失败");
-        }
-        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
-        userUpdateWrapper.eq("id", userId);
-        userUpdateWrapper.setSql("score = score + 30");
-        boolean update = userService.update(userUpdateWrapper);
-        return ResultUtils.success(update);
+        boolean b = userService.signIn(request);
+        return ResultUtils.success(b);
     }
 
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
