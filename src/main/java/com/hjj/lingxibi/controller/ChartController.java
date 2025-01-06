@@ -107,11 +107,6 @@ public class ChartController {
     @PostMapping("/gen")
     public BaseResponse<BIResponse> genChartByAI(@RequestPart("file") MultipartFile multipartFile,
                                                  GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
-        // 先校验用户积分是否足够
-        boolean hasScore = userService.userHasScore(request);
-        if (!hasScore) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
-        }
         if (multipartFile == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "上传文件为空");
         }
@@ -331,11 +326,6 @@ public class ChartController {
     @PostMapping("/gen/async")
     public BaseResponse<BIResponse> genChartByAIAsyncMq(@RequestPart("file") MultipartFile multipartFile,
                                                         GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
-        // 先校验用户积分是否足够
-        boolean hasScore = userService.userHasScore(request);
-        if (!hasScore) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
-        }
         ThrowUtils.throwIf(multipartFile == null, ErrorCode.PARAMS_ERROR, "请传入文件");
         ThrowUtils.throwIf(genChartByAIRequest == null, ErrorCode.PARAMS_ERROR, "请输入分析诉求或图表标题");
         BIResponse biResponse = chartService.genChartByAIAsyncMq(multipartFile, genChartByAIRequest, request);
@@ -425,11 +415,6 @@ public class ChartController {
      */
     @PostMapping("/regen")
     public BaseResponse<BIResponse> reGenChartByAsyncMq(@RequestBody ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
-        // 先校验用户积分是否足够
-        boolean hasScore = userService.userHasScore(request);
-        if (!hasScore) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
-        }
         if (chartRegenRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "图表不存在");
         }

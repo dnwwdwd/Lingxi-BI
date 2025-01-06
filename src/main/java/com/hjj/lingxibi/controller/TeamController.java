@@ -113,13 +113,12 @@ public class TeamController {
         return ResultUtils.success(teamPage);
     }
 
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     @PostMapping("/update")
-    public BaseResponse<Boolean> updateTeam(@RequestBody Team team) {
+    public BaseResponse<Boolean> updateTeam(@RequestBody Team team, HttpServletRequest request) {
         if (team == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        boolean b = teamService.updateTeam(team);
+        boolean b = teamService.updateTeam(team, request);
         return ResultUtils.success(b);
     }
 

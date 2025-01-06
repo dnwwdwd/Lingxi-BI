@@ -35,5 +35,5 @@ public interface TeamService extends IService<Team> {
 
     Page<Team> pageTeam(TeamQueryRequest teamQueryRequest);
 
-    Boolean updateTeam(Team team);
+    Boolean updateTeam(Team team, HttpServletRequest request);
 }

@@ -138,6 +138,19 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     @Override
     public BIResponse genChartByAIAsyncMq(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest,
                                           HttpServletRequest request) {
+        // 获取登录用户信息
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+        boolean canGenChart = userService.canGenerateChart(loginUser);
+        // 判断能否生成图表
+        if (!canGenChart) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
+        }
+        // 先校验用户积分是否足够
+        boolean hasScore = userService.userHasScore(request);
+        if (!hasScore) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
+        }
         String name = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
@@ -155,9 +168,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String suffix = FileUtil.getSuffix(originalFilename);
         final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "非法文件后缀");
-        // 获取登录用户信息
-        User loginUser = userService.getLoginUser(request);
-        Long userId = loginUser.getId();
         // 限流判断
         redisLimiterManager.doRateLimit(RedisConstant.REDIS_LIMITER_ID + userId);
 
@@ -225,6 +235,16 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public BIResponse regenChartByAsyncMq(ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
+        // 判断能否生成图表
+        boolean canGenChart = userService.canGenerateChart(loginUser);
+        if (!canGenChart) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
+        }
+        // 先校验用户积分是否足够
+        boolean hasScore = userService.userHasScore(request);
+        if (!hasScore) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
+        }
         if (userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
@@ -289,6 +309,18 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Override
     public synchronized BIResponse genChartByAI(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+        boolean canGenChart = userService.canGenerateChart(loginUser);
+        // 判断能否生成图表
+        if (!canGenChart) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
+        }
+        // 先校验用户积分是否足够
+        boolean hasScore = userService.userHasScore(request);
+        if (!hasScore) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户积分不足");
+        }
         String name = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
@@ -306,9 +338,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String suffix = FileUtil.getSuffix(originalFilename);
         final List<String> validFileSuffixList = Arrays.asList("xlsx", "xls");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "非法文件后缀");
-
-        User loginUser = userService.getLoginUser(request);
-        Long userId = loginUser.getId();
         // 无需写prompt，直接调用现有模型
 /*        final String prompt="你是一个数据分析刊师和前端开发专家，接下来我会按照以下固定格式给你提供内容：\n" +
                 "分析需求：\n" +
@@ -336,11 +365,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         userInput.append(csvData).append("\n");
         log.info("用户输入诉求：{}", userInput);
-        // 判断是否能生成图表
-        boolean canGenChart = userService.canGenerateChart(loginUser);
-        if (!canGenChart) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
-        }
         // 正在生成图表数量 + 1
         userService.increaseUserGeneratIngCount(loginUser);
         //
@@ -606,6 +630,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         Long userId = loginUser.getId();
         if (userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        boolean canGenChart = userService.canGenerateChart(loginUser);
+        if (!canGenChart) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
         }
         // 参数校验
         Long chartId = chartRegenRequest.getId();

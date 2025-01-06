@@ -234,7 +234,12 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     }
 
     @Override
-    public Boolean updateTeam(Team team) {
+    public Boolean updateTeam(Team team, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        Long userId = loginUser.getId();
+        if (!userService.isAdmin(request) || !userId.equals(team.getUserId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "您无权限修改队伍信息");
+        }
         return this.updateById(team);
     }
 
