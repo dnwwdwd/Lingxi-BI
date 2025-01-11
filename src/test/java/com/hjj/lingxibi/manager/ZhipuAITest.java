@@ -77,29 +77,11 @@ public class ZhipuAITest {
     public void testZhiPuAI() {
         String response = null;
         try {
-            response = zhiPuAIManager.doChat(new ChatMessage(ChatMessageRole.USER.value(), "分析需求：\n" +
-                    "分析近几日的网站数据情况,请注意图表类型必须是折线图\n" +
-                    "原始数据：\n" +
-                    "日期,用户数\n" +
-                    "1号,10\n" +
-                    "2号,20\n" +
-                    "3号,30\n" +
-                    "4号,70\n" +
-                    "5号,20\n" +
-                    "6号,29\n" +
-                    "7号,24\n" +
-                    "8号,31\n" +
-                    "9号,40\n" +
-                    "10号,38\n" +
-                    "11号,43"));
+            response = zhiPuAIManager.doChat(new ChatMessage(ChatMessageRole.USER.value(), "你好，你是谁？"));
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.THIRD_SERVICE_ERROR);
         }
-        System.out.println("智谱AI返回内容：" + response);
-        String jsCode = AIUtil.extractJsCode(response);
-        String analysis = AIUtil.extractAnalysis(response);
-        System.out.println("生成的JS代码：" + jsCode);
-        System.out.println("数据结论：" + analysis);
+        System.out.println(response);
     }
 
     @Test

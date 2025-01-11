@@ -22,7 +22,8 @@ public class ZhiPuAIManager {
 
     public String doChat(ChatMessage chatMessage) {
         List<ChatMessage> messages = new ArrayList<>();
-        ChatMessage prompt = new ChatMessage(ChatMessageRole.SYSTEM.value(), AIConstant.SYSTEM_PROMPT_PRO);
+        ChatMessage prompt = new ChatMessage(ChatMessageRole.SYSTEM.value(), "将我的输入的内容生成为英文，" +
+                "并且不要生成多余内容");
         messages.add(prompt);
         if (chatMessage == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR);
