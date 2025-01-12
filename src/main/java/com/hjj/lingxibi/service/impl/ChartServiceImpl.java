@@ -626,6 +626,13 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     @Override
     public Boolean regenChartByAsyncMqAdmin(ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
         Long charId = chartRegenRequest.getId();
+        Chart chart = new Chart();
+        chart.setId(charId);
+        chart.setStatus("wait");
+        boolean b = this.updateById(chart);
+        if (!b) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "图表状态更新失败");
+        }
         trySendMessageToAdminConsumer(charId);
         return true;
     }
