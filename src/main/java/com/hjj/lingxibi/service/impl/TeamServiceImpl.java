@@ -199,7 +199,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         queryWrapper.eq("userId", userId);
         queryWrapper.orderBy(SqlUtils.validSortField(sortField),
                 CommonConstant.SORT_ORDER_ASC.equals(sortOrder), sortField);
-        Page<TeamUser> teamUserPage = teamUserService.page(new Page<>(current, pageSize));
+        Page<TeamUser> teamUserPage = teamUserService.page(new Page<>(current, pageSize), queryWrapper);
         List<Long> teamIds = teamUserPage.getRecords().stream().map(TeamUser::getTeamId)
                 .collect(Collectors.toList());
         List<Team> teams = this.listByIds(teamIds);
