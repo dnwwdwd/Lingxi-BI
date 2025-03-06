@@ -35,12 +35,8 @@ public class TtlQueueConsumer {
         long chartId = Long.parseLong(message);
         Chart chart = chartService.getById(chartId);
         if (chartId > 0 && chart != null) {
-            biMessageProducer.sendMessage(message);
-        } else {
-            Chart failedChart = new Chart();
-            failedChart.setStatus("failed");
-            failedChart.setId(chartId);
-            chartService.updateById(failedChart);
+            chart.setStatus("failed");
+            chartService.updateById(chart);
         }
         channel.basicAck(deliveryTag, false);
     }
