@@ -161,8 +161,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String chartType = genChartByAIRequest.getChartType();
         // 校验参数
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
-        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100,
-                ErrorCode.PARAMS_ERROR, "名称过长");
+        ThrowUtils.throwIf(StringUtils.isBlank(name) || name.length() > 100,
+                ErrorCode.PARAMS_ERROR, "名称不合法");
         // 校验文件
         long size = multipartFile.getSize();
         String originalFilename = multipartFile.getOriginalFilename();
@@ -333,8 +333,8 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String chartType = genChartByAIRequest.getChartType();
         // 校验参数
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
-        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100,
-                ErrorCode.PARAMS_ERROR, "名称过长");
+        ThrowUtils.throwIf(StringUtils.isBlank(name) || name.length() > 100,
+                ErrorCode.PARAMS_ERROR, "名称不合法");
         // 校验文件
         long size = multipartFile.getSize();
         String originalFilename = multipartFile.getOriginalFilename();

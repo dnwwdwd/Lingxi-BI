@@ -6,7 +6,6 @@ import com.hjj.lingxibi.exception.BusinessException;
 import com.hjj.lingxibi.manager.SSEManager;
 import com.hjj.lingxibi.model.dto.ai.ChatGPTResponse;
 import com.hjj.lingxibi.model.entity.Chart;
-import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.service.ChartService;
 import com.hjj.lingxibi.service.UserService;
 import com.hjj.lingxibi.utils.AIUtil;
@@ -38,7 +37,7 @@ public class BIMessageConsumerByChatGPT {
 
     // 制定消费者监听哪个队列和消息确认机制
     @RabbitListener(queues = {"bi_common_queue"}, ackMode = "MANUAL")
-    public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+    public synchronized void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         log.info("receiveMessage is {}", message);
         if (StringUtils.isBlank(message)) {
             // 如果失败，消息拒绝
@@ -112,7 +111,7 @@ public class BIMessageConsumerByChatGPT {
             response = AIUtil.invokeChatGPT(userInput, chartId);
         } catch (Exception e) {
             chartService.handleChartUpdateError(chartId,  "调用ChatGPT失败");
-            deductUserGeneratIngCount(userId, invokeUserId);
+            log.info("图表Id: {} 调用 ChatGPT 失败了", chartId);
             MQUtil.rejectMsgAndRequeue(channel, deliveryTag, chartId);
             return;
         }

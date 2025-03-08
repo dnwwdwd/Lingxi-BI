@@ -12,6 +12,7 @@ public class MQUtil {
     public static void rejectMsgAndRequeue(Channel channel, long deliveryTag, long charId){
         try {
             channel.basicReject(deliveryTag, true);
+            log.info("图表：{} 重新入队成功", charId);
         } catch (IOException e) {
             log.error("图表Id：{} 消息拒绝和重入队失败了", charId);
             throw new RuntimeException(e);

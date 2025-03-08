@@ -45,7 +45,7 @@ public class BIMessageConsumerByZhiPuAI {
 
     // 制定消费者监听哪个队列和消息确认机制
     @RabbitListener(queues = {"bi_common_queue"}, ackMode = "MANUAL")
-    public void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
+    public synchronized void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         log.info("receiveMessage is {}", message);
         if (StringUtils.isBlank(message)) {
             // 如果失败，消息拒绝
@@ -124,7 +124,6 @@ public class BIMessageConsumerByZhiPuAI {
             result = zhiPuAIManager.doChat(chatMessage, chartId);
         } catch (Exception e) {
             chartService.handleChartUpdateError(chart.getId(), "调用智谱AI失败");
-            deductUserGeneratIngCount(userId, invokeUserId);
             log.info("图表Id: {} 调用智谱 AI 失败了", chartId);
             MQUtil.rejectMsgAndRequeue(channel, deliveryTag, chartId);
             return;
