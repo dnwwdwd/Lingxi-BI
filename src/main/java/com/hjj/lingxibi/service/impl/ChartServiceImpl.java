@@ -29,10 +29,7 @@ import com.hjj.lingxibi.model.entity.Team;
 import com.hjj.lingxibi.model.entity.TeamChart;
 import com.hjj.lingxibi.model.entity.User;
 import com.hjj.lingxibi.model.vo.BIResponse;
-import com.hjj.lingxibi.service.ChartService;
-import com.hjj.lingxibi.service.TeamChartService;
-import com.hjj.lingxibi.service.TeamService;
-import com.hjj.lingxibi.service.UserService;
+import com.hjj.lingxibi.service.*;
 import com.hjj.lingxibi.utils.AIUtil;
 import com.hjj.lingxibi.utils.ChartUtil;
 import com.hjj.lingxibi.utils.ExcelUtils;
@@ -43,9 +40,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.formula.functions.T;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
@@ -91,8 +90,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
 
     @Resource
     private SSEManager sseManager;
-    @Autowired
-    private UserServiceImpl userServiceImpl;
+
+    @Resource
+    private MessageService messageService;
+
+    @Resource
+    private ChartHistoryService chartHistoryService;
 
     /**
      * 获取查询包装类
@@ -159,10 +162,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String name = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
+        Integer type = genChartByAIRequest.getType();
         // 校验参数
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
         ThrowUtils.throwIf(StringUtils.isBlank(name) || name.length() > 100,
                 ErrorCode.PARAMS_ERROR, "名称不合法");
+        ThrowUtils.throwIf(type == null, ErrorCode.PARAMS_ERROR, "数据来源不能为空");
         // 校验文件
         long size = multipartFile.getSize();
         String originalFilename = multipartFile.getOriginalFilename();
@@ -188,6 +193,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         chart.setChartType(chartType);
         chart.setStatus("wait");
         chart.setUserId(userId);
+        chart.setType(type);
 
         BIResponse biResponse = null;
 
@@ -331,10 +337,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String name = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
+        Integer type = genChartByAIRequest.getType();
         // 校验参数
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
         ThrowUtils.throwIf(StringUtils.isBlank(name) || name.length() > 100,
                 ErrorCode.PARAMS_ERROR, "名称不合法");
+        ThrowUtils.throwIf(type == null, ErrorCode.PARAMS_ERROR, "数据来源不能为空");
         // 校验文件
         long size = multipartFile.getSize();
         String originalFilename = multipartFile.getOriginalFilename();
@@ -393,8 +401,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
             throw new BusinessException(ErrorCode.THIRD_SERVICE_ERROR, "图表生成失败");
         }
         genChart = ChartUtil.strengthenGenChart(genChart);
-        // 正在生成图表数量 - 1
-        userService.deductUserGeneratIngCount(loginUser.getId());
         // 插入数据到数据库
         Chart chart = new Chart();
         chart.setName(name);
@@ -405,16 +411,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         chart.setGenResult(genResult);
         chart.setUserId(userId);
         chart.setStatus("succeed");
+        chart.setType(type);
         boolean saveResult = this.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
-        // 更新用户积分和正在生成的图表数量
-        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
-        userUpdateWrapper.setSql("score = score - 5, generating_count = generatingCount - 1");
-        userUpdateWrapper.eq("id", userId);
-        boolean update = userService.update(userUpdateWrapper);
-        if (!update) {
-            log.error("用户 {} 积分扣除失败", userId);
-        }
+        // 正在生成图表数量 - 1
+        userService.deductUserGeneratIngCount(loginUser.getId());
+        userService.deductUserScore(loginUser.getId());
         log.info("图表 Id 为：{} 的对象信息: {}", chart.getId(), chart.toString());
         BIResponse biResponse = new BIResponse();
         biResponse.setGenChart(genChart);
@@ -566,9 +568,15 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         Long chartId = chartAddToTeamRequest.getChartId();
         Long teamId = chartAddToTeamRequest.getTeamId();
         Chart chart = this.getById(chartId);
+        Integer allowModify = chartAddToTeamRequest.getAllowModify();
+        ThrowUtils.throwIf(chart == null || teamId == null || allowModify == null,
+                ErrorCode.PARAMS_ERROR, "参数不全");
         if (chart == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "图表不存在");
         }
+        chart.setAllowModify(allowModify);
+        boolean b = this.updateById(chart);
+        ThrowUtils.throwIf(!b, ErrorCode.SYSTEM_ERROR);
         Team team = teamService.getById(teamId);
         if (team == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "队伍不存在");
@@ -654,6 +662,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public BIResponse regenChartByAsyncMqFromTeam(ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
@@ -687,12 +696,13 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         // 查看重新生成的图标是否存在
         ChartQueryRequest chartQueryRequest = new ChartQueryRequest();
         chartQueryRequest.setId(chartId);
-        Long chartCount = chartMapper.selectCount(this.getQueryWrapper(chartQueryRequest));
-        if (chartCount <= 0) {
+        Chart chart = this.getById(chartId);
+        if (chart == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "图表不存在");
         }
         // 限流
         redisLimiterManager.doRateLimit(RedisConstant.REDIS_LIMITER_ID + userId);
+        messageService.sendMessage(chartId, loginUser);
         // 更改图表状态为wait
         Chart waitingChart = new Chart();
         BeanUtils.copyProperties(chartRegenRequest, waitingChart);

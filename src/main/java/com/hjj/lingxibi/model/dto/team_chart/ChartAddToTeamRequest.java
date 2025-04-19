@@ -11,4 +11,6 @@ public class ChartAddToTeamRequest implements Serializable {
 
     private Long teamId;
 
+    private Integer allowModify;
+
 }

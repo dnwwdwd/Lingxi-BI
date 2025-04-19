@@ -28,7 +28,7 @@ public class EasyExcelTest {
     @Test
     public void doImport() throws FileNotFoundException {
         List<Map<Integer, String>> list = null;
-        File file = ResourceUtils.getFile("classpath:网站数据.xlsx");
+        File file = ResourceUtils.getFile("classpath:4s店.xlsx");
         try {
             list = EasyExcel.read(file)
                     .excelType(ExcelTypeEnum.XLSX)
@@ -54,8 +54,8 @@ public class EasyExcelTest {
      */
     @Test
     public void doImportsForMapping() throws FileNotFoundException{
-        // 读取 resource 目录下的 Excel 文件（网站数据.xlsx）
-        File file = ResourceUtils.getFile("classpath:网站数据.xlsx");
+        // 读取 resource 目录下的 Excel 文件（4s店.xlsx）
+        File file = ResourceUtils.getFile("classpath:4s店.xlsx");
         // 创建一个 list 存储每行的数据，即 ExcelData 对象
         List<ExcelData> list = new ArrayList<>();
         // 直接使用 EasyExcel 的 read 方法，同时定义表头的类型，以便将列中数据映射为 ExcelData 对象
@@ -78,7 +78,7 @@ public class EasyExcelTest {
      */
     @Test
     public void doImportsForMappingByInnerClass() throws FileNotFoundException{
-        File file = ResourceUtils.getFile("classpath:网站数据.xlsx");
+        File file = ResourceUtils.getFile("classpath:4s店.xlsx");
         EasyExcel.read(file, ExcelData.class, new ReadListener<ExcelData>() {
 
             // 单次缓存的数据量

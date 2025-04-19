@@ -1,24 +1,24 @@
 package com.hjj.lingxibi.model.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
-import lombok.Data;
-import lombok.ToString;
-
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import java.io.Serializable;
 import java.util.Date;
+import lombok.Data;
 
 /**
  * 图表信息表
- * @TableName chart
+ * @TableName chart_history
  */
-@TableName(value ="chart")
+@TableName(value ="chart_history")
 @Data
-@ToString
-public class Chart implements Serializable {
+public class ChartHistory implements Serializable {
     /**
      * id
      */
-    @TableId(value = "id", type = IdType.ASSIGN_ID)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
     /**
@@ -52,7 +52,7 @@ public class Chart implements Serializable {
     private String genResult;
 
     /**
-     * 图表的状态 wait,succeed,failed,running
+     * 图表的状态（wait,succeed,failed,running）
      */
     private String status;
 
@@ -65,6 +65,11 @@ public class Chart implements Serializable {
      * 创建的用户Id
      */
     private Long userId;
+
+    /**
+     * 关联的图表id
+     */
+    private Long relatedChartId;
 
     private Integer type;
 
@@ -83,7 +88,6 @@ public class Chart implements Serializable {
     /**
      * 是否删除（0-不删除 1-删除）
      */
-    @TableLogic
     private Integer isDelete;
 
     @TableField(exist = false)

@@ -17,4 +17,6 @@ public class GenChartByAIRequest implements Serializable{
 
     @ApiModelProperty(value = "图表类型", required = true)
     private String chartType;
+
+    private Integer type;
 }
