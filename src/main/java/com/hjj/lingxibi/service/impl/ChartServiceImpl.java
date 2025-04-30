@@ -153,7 +153,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (!canGenChart) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
         }
-        userService.increaseUserGeneratIngCount(userId);
         // 先校验用户积分是否足够
         boolean hasScore = userService.userHasScore(loginUser);
         if (!hasScore) {
@@ -227,6 +226,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
                     // 图表信息重新保存至数据库向MQ投递消息
                     trySendMessageByMq(newChartId);
                 }
+                userService.increaseUserGeneratIngCount(userId);
                 // 创建 BIResponse 对象并返回
                 biResponse = new BIResponse();
                 biResponse.setChartId(newChartId);
