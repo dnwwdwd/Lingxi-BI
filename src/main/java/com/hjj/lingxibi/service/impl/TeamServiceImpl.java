@@ -227,8 +227,11 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         long current = teamQueryRequest.getCurrent();
         long pageSize = teamQueryRequest.getPageSize();
         QueryWrapper<Team> queryWrapper = new QueryWrapper<>();
-        queryWrapper.like(StringUtils.isNotEmpty(searchParams), "name", searchParams);
-        queryWrapper.like(StringUtils.isNotEmpty(searchParams), "description", searchParams);
+        queryWrapper.and(StringUtils.isNotEmpty(searchParams), wrapper ->
+                wrapper.like(StringUtils.isNotEmpty(searchParams), "name", searchParams)
+                        .or()
+                        .like(StringUtils.isNotEmpty(searchParams), "description", searchParams)
+        );
         Page<Team> teamPage = this.page(new Page<>(current, pageSize), queryWrapper);
         return teamPage;
     }

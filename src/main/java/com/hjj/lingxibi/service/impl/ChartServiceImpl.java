@@ -161,12 +161,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String name = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
-        Integer type = genChartByAIRequest.getType();
         // 校验参数
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
         ThrowUtils.throwIf(StringUtils.isBlank(name) || name.length() > 100,
                 ErrorCode.PARAMS_ERROR, "名称不合法");
-        ThrowUtils.throwIf(type == null, ErrorCode.PARAMS_ERROR, "数据来源不能为空");
         // 校验文件
         long size = multipartFile.getSize();
         String originalFilename = multipartFile.getOriginalFilename();
@@ -192,7 +190,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         chart.setChartType(chartType);
         chart.setStatus("wait");
         chart.setUserId(userId);
-        chart.setType(type);
 
         BIResponse biResponse = null;
 
@@ -271,7 +268,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标为空");
         ThrowUtils.throwIf(StringUtils.isBlank(chartData), ErrorCode.PARAMS_ERROR, "原始数据为空");
         ThrowUtils.throwIf(StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR, "图表类型为空");
-        // 查看重新生成的图标是否存在
+        // 查看重新生成的图表是否存在
         ChartQueryRequest chartQueryRequest = new ChartQueryRequest();
         chartQueryRequest.setId(chartId);
         Long chartCount = chartMapper.selectCount(this.getQueryWrapper(chartQueryRequest));
@@ -337,12 +334,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         String name = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
-        Integer type = genChartByAIRequest.getType();
         // 校验参数
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "目标为空");
         ThrowUtils.throwIf(StringUtils.isBlank(name) || name.length() > 100,
                 ErrorCode.PARAMS_ERROR, "名称不合法");
-        ThrowUtils.throwIf(type == null, ErrorCode.PARAMS_ERROR, "数据来源不能为空");
         // 校验文件
         long size = multipartFile.getSize();
         String originalFilename = multipartFile.getOriginalFilename();
@@ -411,7 +406,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         chart.setGenResult(genResult);
         chart.setUserId(userId);
         chart.setStatus("succeed");
-        chart.setType(type);
         boolean saveResult = this.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
         // 正在生成图表数量 - 1
@@ -693,7 +687,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         ThrowUtils.throwIf(StringUtils.isBlank(chartData), ErrorCode.PARAMS_ERROR, "原始数据为空");
         ThrowUtils.throwIf(StringUtils.isBlank(chartType), ErrorCode.PARAMS_ERROR, "图表类型为空");
         ThrowUtils.throwIf(teamId == null, ErrorCode.PARAMS_ERROR, "队伍Id为空");
-        // 查看重新生成的图标是否存在
+        // 查看重新生成的图表是否存在
         ChartQueryRequest chartQueryRequest = new ChartQueryRequest();
         chartQueryRequest.setId(chartId);
         Chart chart = this.getById(chartId);

@@ -19,7 +19,7 @@ public class ChartAddRequest implements Serializable {
     private String goal;
 
     /**
-     * 图标名称
+     * 图表名称
      */
     private String name;
 

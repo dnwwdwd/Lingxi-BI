@@ -43,7 +43,7 @@ public class BIMessageConsumerByZhiPuAI {
     @Resource
     private ZhiPuAIManager zhiPuAIManager;
 
-    // 制定消费者监听哪个队列和消息确认机制
+    // 指定消费者监听哪个队列和消息确认机制
     @RabbitListener(queues = {"bi_common_queue"}, ackMode = "MANUAL")
     public synchronized void receiveMessage(String message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long deliveryTag) {
         log.info("receiveMessage is {}", message);
