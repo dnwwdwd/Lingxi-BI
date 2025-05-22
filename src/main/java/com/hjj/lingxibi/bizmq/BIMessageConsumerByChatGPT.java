@@ -100,7 +100,6 @@ public class BIMessageConsumerByChatGPT {
                 throw new RuntimeException(e);
             }
             chartService.handleChartUpdateError(chart.getId(),"更新图表执行状态失败");
-            deductUserGeneratIngCount(userId, invokeUserId);
             return;
         }
         String userInput = ChartUtil.buildUserInput(chart);
@@ -128,38 +127,26 @@ public class BIMessageConsumerByChatGPT {
         // 生成的 Echarts 代码不合法
         if (!isValid) {
             chartService.handleChartUpdateError(chartId, "生成的 Echarts 代码不合法");
-            deductUserGeneratIngCount(userId, invokeUserId);
             return;
         }
         // 生成的 Echarts 代码合法则将生成的Echarts代码进行增强，拓展下载图表功能
         genChart = ChartUtil.strengthenGenChart(genChart);
-        // 扣除用户正在生成的图表数量
-        deductUserGeneratIngCount(userId, invokeUserId);
         // 更新图表状态为成功
         chartService.handleChartUpdateSuccess(chartId, genChart, genResult);
         // 扣除用户积分（调用一次 AI 服务，扣除5个积分）
-        userService.deductUserScore(userId);
+        userService.deductUserScore(invokeUserId == null ? userId : invokeUserId);
         // 将生成的图表推送到SSE
         if (teamId != null) {
             sseManager.sendTeamChartUpdate(teamId, chartService.getById(chartId));
         } else {
             sseManager.sendChartUpdate(userId, chartService.getById(chartId));
         }
-
         // 如果任务执行成功，手动执行ack
         try {
             channel.basicAck(deliveryTag, false);
         } catch (IOException e) {
             log.info("消息应答失败：", e);
             throw new RuntimeException(e);
-        }
-    }
-
-    private void deductUserGeneratIngCount(Long userId, Long invokeUserId) {
-        if (invokeUserId == null) {
-            userService.deductUserGeneratIngCount(userId);
-        } else {
-            userService.deductUserGeneratIngCount(invokeUserId);
         }
     }
 

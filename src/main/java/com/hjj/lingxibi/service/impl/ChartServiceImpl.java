@@ -3,7 +3,6 @@ package com.hjj.lingxibi.service.impl;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.github.rholder.retry.RetryException;
@@ -40,9 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.poi.ss.formula.functions.T;
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -148,11 +145,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         // 获取登录用户信息
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
-        boolean canGenChart = userService.canGenerateChart(loginUser);
-        // 判断能否生成图表
-        if (!canGenChart) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
-        }
         // 先校验用户积分是否足够
         boolean hasScore = userService.userHasScore(loginUser);
         if (!hasScore) {
@@ -223,7 +215,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
                     // 图表信息重新保存至数据库向MQ投递消息
                     trySendMessageByMq(newChartId);
                 }
-                userService.increaseUserGeneratIngCount(userId);
                 // 创建 BIResponse 对象并返回
                 biResponse = new BIResponse();
                 biResponse.setChartId(newChartId);
@@ -243,12 +234,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public BIResponse regenChartByAsyncMq(ChartRegenRequest chartRegenRequest, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
-        // 判断能否生成图表
-        boolean canGenChart = userService.canGenerateChart(loginUser);
-        if (!canGenChart) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
-        }
-        userService.increaseUserGeneratIngCount(userId);
         // 先校验用户积分是否足够
         boolean hasScore = userService.userHasScore(loginUser);
         if (!hasScore) {
@@ -320,12 +305,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     public synchronized BIResponse genChartByAI(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
-        boolean canGenChart = userService.canGenerateChart(loginUser);
-        // 判断能否生成图表
-        if (!canGenChart) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
-        }
-        userService.increaseUserGeneratIngCount(userId);
         // 先校验用户积分是否足够
         boolean hasScore = userService.userHasScore(loginUser);
         if (!hasScore) {
@@ -377,6 +356,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         log.info("用户输入诉求：{}", userInput);
         String response = null;
         try {
+            // 调用AI
             response = zhiPuAIManager.doChat(new ChatMessage(ChatMessageRole.USER.value(), userInput.toString()));
         } catch (Exception e) {
             saveAndReturnFailedChart(name, goal, chartType, csvData, "",
@@ -408,8 +388,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         chart.setStatus("succeed");
         boolean saveResult = this.save(chart);
         ThrowUtils.throwIf(!saveResult, ErrorCode.SYSTEM_ERROR, "图表保存失败");
-        // 正在生成图表数量 - 1
-        userService.deductUserGeneratIngCount(loginUser.getId());
         userService.deductUserScore(loginUser.getId());
         log.info("图表 Id 为：{} 的对象信息: {}", chart.getId(), chart.toString());
         BIResponse biResponse = new BIResponse();
@@ -617,7 +595,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         long size = chartQueryRequest.getPageSize();
         String searchParams = chartQueryRequest.getSearchParams();
         // 限制爬虫
-        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
+//        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
         QueryWrapper<Chart> queryWrapper = this.getQueryWrapper(chartQueryRequest);
         queryWrapper.like(StringUtils.isNotEmpty(searchParams), "name", searchParams).or(StringUtils.isNotEmpty(searchParams), wrapper -> wrapper.like("status", searchParams));
         queryWrapper.orderBy(true, true, "updateTime");
@@ -663,12 +641,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         if (userId == null || userId <= 0) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
-        // 判断能否生成图表
-        boolean canGenChart = userService.canGenerateChart(loginUser);
-        if (!canGenChart) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "您同时生成图表过多，请稍后再生成");
-        }
-        userService.increaseUserGeneratIngCount(userId);
         // 先校验用户积分是否足够
         boolean hasScore = userService.userHasScore(loginUser);
         if (!hasScore) {

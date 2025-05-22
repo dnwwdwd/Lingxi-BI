@@ -25,9 +25,6 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -112,7 +109,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq("userAccount", userAccount);
         queryWrapper.eq("userPassword", encryptPassword);
         User user = this.baseMapper.selectOne(queryWrapper);
-        // 用户不存在
+        // 如果用户不存在，则返回错误信息
         if (user == null) {
             log.info("user login failed, userAccount cannot match userPassword");
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
@@ -289,37 +286,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public synchronized void deductUserGeneratIngCount(Long userId) {
-        User user = this.getById(userId);
-        if (user.getGeneratingCount() == null || user.getGeneratingCount() <= 0) {
-            return;
-        }
-        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
-        userUpdateWrapper.eq("id", userId);
-        userUpdateWrapper.setSql("generatingCount = generatingCount - 1");
-        boolean updateScoreResult = this.update(userUpdateWrapper);
-        if (!updateScoreResult) {
-            log.error("用户: {} 生成图表数量扣除失败", userId);
-        }
-    }
-
-    @Override
-    public synchronized void increaseUserGeneratIngCount(Long userId) {
-        UpdateWrapper<User> userUpdateWrapper = new UpdateWrapper<>();
-        userUpdateWrapper.eq("id", userId);
-        userUpdateWrapper.setSql("generatingCount = generatingCount + 1");
-        boolean updateScoreResult = this.update(userUpdateWrapper);
-        if (!updateScoreResult) {
-            log.error("用户: {} 生成图表数量增加失败", userId);
-        }
-    }
-
-    @Override
-    public Boolean canGenerateChart(User user) {
-        return user.getGeneratingCount() <= 3;
-    }
-
-    @Override
     public Page<User> pageUser(UserQueryRequest userQueryRequest, HttpServletRequest request) {
         User loginUser = this.getLoginUser(request);
         Long userId = loginUser.getId();
@@ -374,7 +340,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (this.count(new QueryWrapper<User>().eq("userAccount", userAccount)) > 0) {
             throw new BusinessException(ErrorCode.OPERATION_ERROR, "用户名已存在");
         }
-        user.setGeneratingCount(0);
         // 2. 加密
         userPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
         user.setUserPassword(userPassword);

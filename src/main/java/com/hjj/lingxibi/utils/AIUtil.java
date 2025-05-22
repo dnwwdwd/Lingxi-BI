@@ -45,17 +45,17 @@ public class AIUtil {
     }
 
     public static String invokeChatGPT(String message) throws Exception {
+        // 初始化调用工具
         OkHttpClient client = new OkHttpClient();
         Gson gson = new Gson();
-
-        // 创建 JSON 对象
+        // 创建 JSON 对象和指定AI模型
         JsonObject json = new JsonObject();
         json.addProperty("model", "gpt-4o-mini");
 
         JsonArray messages = new JsonArray();
         JsonObject systemMessage = new JsonObject();
         JsonObject messageObj = new JsonObject();
-        // 添加 system 消息
+        // 指定AI Prompt
         systemMessage.addProperty("role", "system");
         systemMessage.addProperty("content", AIConstant.SYSTEM_PROMPT_PRO);
         messages.add(systemMessage);
@@ -66,10 +66,8 @@ public class AIUtil {
         messages.add(messageObj);
         json.add("messages", messages);
         json.addProperty("temperature", 0.7);
-
         // 将 JSON 对象转换为字符串
         String jsonString = gson.toJson(json);
-
         MediaType mediaType = MediaType.parse("application/json; charset=utf-8");
         RequestBody body = RequestBody.create(jsonString, mediaType);
         Request request = new Request.Builder()
@@ -78,8 +76,8 @@ public class AIUtil {
                 .addHeader("Authorization", "Bearer " + AIConstant.CHATGPT_API_KEY)
                 .addHeader("Content-Type", "application/json")
                 .build();
-
         String responseBody = "";
+        // 开始调用AI接口
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 String errorResponse = response.body().string();
@@ -91,6 +89,7 @@ public class AIUtil {
             log.info("图表调用ChatGPT API 时抛出了异常，异常信息：{}", e.getMessage());
             throw new Exception(e.getMessage());
         }
+        // 返回AI内容
         return responseBody;
     }
 

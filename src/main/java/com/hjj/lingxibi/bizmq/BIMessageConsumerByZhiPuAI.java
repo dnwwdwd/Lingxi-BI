@@ -112,7 +112,6 @@ public class BIMessageConsumerByZhiPuAI {
                 throw new RuntimeException(e);
             }
             chartService.handleChartUpdateError(chart.getId(), "更新图表执行状态失败");
-            deductUserGeneratIngCount(userId, invokeUserId);
             return;
         }
         String userInput = buildUserInput(chart);
@@ -137,17 +136,14 @@ public class BIMessageConsumerByZhiPuAI {
         // 生成的 Echarts 代码不合法
         if (!isValid) {
             chartService.handleChartUpdateError(chartId, "生成的 Echarts 代码不合法");
-            deductUserGeneratIngCount(userId, invokeUserId);
             return;
         }
         // 生成的 Echarts 代码合法则将生成的Echarts代码进行增强，拓展下载图表功能
         genChart = strengthenGenChart(genChart);
-        // 扣除用户正在生成的图表数量
-        deductUserGeneratIngCount(userId, invokeUserId);
         // 更新图表任务状态为成功
         chartService.handleChartUpdateSuccess(chartId, genChart, genResult);
         // 扣除用户积分（调用一次 AI 服务，扣除5个积分）
-        userService.deductUserScore(userId);
+        userService.deductUserScore(invokeUserId == null ? userId : invokeUserId);
         // 将生成的图表推送到SSE
         if (teamId != null) {
             sseManager.sendTeamChartUpdate(teamId, chartService.getById(chartId));
@@ -164,12 +160,5 @@ public class BIMessageConsumerByZhiPuAI {
         }
     }
 
-    private void deductUserGeneratIngCount(Long userId, Long invokeUserId) {
-        if (invokeUserId == null) {
-            userService.deductUserGeneratIngCount(userId);
-        } else {
-            userService.deductUserGeneratIngCount(invokeUserId);
-        }
-    }
 
 }

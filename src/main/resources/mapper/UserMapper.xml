@@ -12,7 +12,6 @@
             <result property="userAvatar" column="userAvatar" jdbcType="VARCHAR"/>
             <result property="userRole" column="userRole" jdbcType="VARCHAR"/>
             <result property="score" column="score" jdbcType="INTEGER"/>
-            <result property="generatingCount" column="generatingCount" jdbcType="INTEGER"/>
             <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
             <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
             <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>

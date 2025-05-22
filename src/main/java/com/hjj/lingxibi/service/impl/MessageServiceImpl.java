@@ -72,7 +72,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message>
     public List<MessageVO> listMyMessage(HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         Long userId = loginUser.getId();
+        // 查询所有消息
         List<Message> messages = this.lambdaQuery().eq(Message::getToId, userId).orderByDesc(Message::getCreateTime).list();
+        // 查看图表被修改前的信息
         List<MessageVO> messageVOS = messages.stream().map(message -> {
             MessageVO messageVO = new MessageVO();
             BeanUtils.copyProperties(message, messageVO);

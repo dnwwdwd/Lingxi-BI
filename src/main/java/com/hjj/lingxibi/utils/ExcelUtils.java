@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 public class ExcelUtils {
     /**
      * excel 转为 csv
+     *
      * @return
      */
     public static String excelToCsv(MultipartFile multipartFile) {
@@ -32,9 +33,10 @@ public class ExcelUtils {
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }*/
-        // 读取数据
+        // 存储读取的数据
         List<Map<Integer, String>> list = null;
         try {
+            // 读取数据文件
             list = EasyExcel.read(multipartFile.getInputStream())
                     .excelType(ExcelTypeEnum.XLSX)
                     .sheet()
@@ -53,8 +55,8 @@ public class ExcelUtils {
         LinkedHashMap<Integer, String> headerMap = (LinkedHashMap) list.get(0);
         List<String> headerList = headerMap.values().stream().filter(ObjectUtils::isNotEmpty).collect(Collectors.toList());
         stringBuilder.append(StringUtils.join(headerList, ",")).append("\n");
-        // 读取数据
-        for (int i=1;i<list.size();i++) {
+        // 读取数据并进行格式化
+        for (int i = 1; i < list.size(); i++) {
             LinkedHashMap<Integer, String> dataMap = (LinkedHashMap) list.get(i);
             List<String> dataList = dataMap.values().stream().filter(ObjectUtils::isNotEmpty).collect(Collectors.toList());
             stringBuilder.append(StringUtils.join(dataList, ",")).append("\n");

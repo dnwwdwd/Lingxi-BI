@@ -43,6 +43,7 @@ public class TeamController {
     @Autowired
     private UserServiceImpl userServiceImpl;
 
+    // 创建队伍
     @PostMapping("/add")
     public BaseResponse<Boolean> addTeam(@RequestBody TeamAddRequest teamAddRequest, HttpServletRequest request) {
         if (teamAddRequest == null) {
@@ -52,6 +53,7 @@ public class TeamController {
         return ResultUtils.success(b);
     }
 
+    // 查询队伍
     @PostMapping("/list/page")
     public BaseResponse<Page<TeamVO>> listTeamByPage(@RequestBody TeamQueryRequest teamQueryRequest, HttpServletRequest request) {
         if (teamQueryRequest == null) {
@@ -61,6 +63,7 @@ public class TeamController {
         return ResultUtils.success(teamVOS);
     }
 
+    // 加入队伍
     @PostMapping("/join")
     public BaseResponse<Boolean> joinTeam(@RequestBody Team team, HttpServletRequest request) {
         if (team == null) {
