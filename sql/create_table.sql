@@ -18,7 +18,7 @@ create table lingxibi.chart
     execMessage text                                   null comment '执行信息',
     userId      bigint                                 null comment '创建的用户Id',
     type        tinyint                                null comment '类型（1 - 教育行业 2 - 汽车行业）',
-    allowModify tinyint      default 1                 null comment '是否允许他人修改',
+    allowModify tinyint      default 0                 null comment '是否允许他人修改',
     createTime  datetime     default CURRENT_TIMESTAMP null comment '创建时间',
     updateTime  datetime     default CURRENT_TIMESTAMP null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete    tinyint      default 0                 null comment '是否删除（0-不删除 1-删除）'
@@ -128,7 +128,6 @@ create table lingxibi.user
     userAvatar      varchar(1024) default 'https://th.bing.com/th/id/R.54a295a86f04aaf12f1285d4e00fd6be?rik=QAdEADu3LNh9Hg&pid=ImgRaw&r=0' null comment '用户头像',
     userRole        varchar(256)  default 'user'                                                                                           not null comment '用户角色：user/admin/ban',
     score           int           default 0                                                                                                not null comment '积分',
-    generatingCount int           default 0                                                                                                not null comment '正在生成的图表数量',
     createTime      datetime      default CURRENT_TIMESTAMP                                                                                not null comment '创建时间',
     updateTime      datetime      default CURRENT_TIMESTAMP                                                                                not null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete        tinyint       default 0                                                                                                not null comment '是否删除'

@@ -22,14 +22,17 @@ public class ZhiPuAIManager {
 
     public String doChat(ChatMessage chatMessage) {
         List<ChatMessage> messages = new ArrayList<>();
+        // 指定AI Prompt
         ChatMessage prompt = new ChatMessage(ChatMessageRole.SYSTEM.value(), AIConstant.SYSTEM_PROMPT_PRO);
         messages.add(prompt);
         if (chatMessage == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR);
         }
+        // 指定用户的发送消息（分析诉求和格式化后的数据）
         messages.add(chatMessage);
+        // 指定模型
         ChatCompletionRequest chatCompletionRequest = ChatCompletionRequest.builder()
-                .model("glm-4-flash")
+                .model("glm-4-flash-250414")
                 .stream(Boolean.FALSE)
                 .invokeMethod(Constants.invokeMethod)
                 .messages(messages)
